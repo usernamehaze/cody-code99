@@ -1,9 +1,10 @@
 /* The class leaderboard (api/class.js): make a class, join one with its 6-letter code, and keep this
    student's points on the board. The last board seen is saved, so Home shows it at once (and offline). */
 import * as S from './store.js';
+import { API } from './ai.js';
 
 async function call(body) {
-  let r; try { r = await fetch('/api/class', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); }
+  let r; try { r = await fetch(API + '/api/class', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); }
   catch (e) { throw new Error('You seem to be offline.'); }
   const j = await r.json().catch(() => null);
   if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || 'Could not reach the class leaderboard.');
@@ -12,7 +13,7 @@ async function call(body) {
 const myId = () => { const s = S.get(); if (!s.studentId) { s.studentId = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => (b % 36).toString(36)).join(''); S.save(); } return s.studentId; };
 const me = () => ({ id: myId(), name: S.get().name || 'Student', points: S.get().points });
 
-export async function enabled() { try { const r = await fetch('/api/class'); const j = await r.json(); return !!j.enabled; } catch (e) { return false; } }
+export async function enabled() { try { const r = await fetch(API + '/api/class'); const j = await r.json(); return !!j.enabled; } catch (e) { return false; } }
 
 export async function join(code) {
   const j = await call({ action: 'join', code: String(code).trim().toUpperCase(), ...me() });

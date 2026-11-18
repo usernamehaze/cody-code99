@@ -7,6 +7,7 @@
    (The same order Cassie's server uses.) Optional: GROQ_MODEL, GEMINI_MODEL, CLAUDE_MODEL. */
 import Anthropic from '@anthropic-ai/sdk';
 import { limited } from '../lib/limit.js';
+import { cors } from '../lib/cors.js';
 import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, checkDrawing, explainPrompt, checkExplain } from '../lib/tasks.js';
 
 const env = (k) => (process.env[k] || '').trim();
@@ -89,6 +90,7 @@ async function ask(prompt, check, file) {
 }
 
 export default async function handler(req, res) {
+  if (cors(req, res)) return;
   if (req.method === 'GET') return res.status(200).json({ ok: true, providers: ORDER.filter((n) => env(PROVIDERS[n].key)) });
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST only' });
   if (limited(req, 'ai', 60)) return res.status(429).json({ ok: false, error: 'Cody needs a short break. Try again in a few minutes.' });

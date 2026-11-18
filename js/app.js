@@ -63,4 +63,4 @@ S.onChange(streakCard);
 Class.watch();
 window.addEventListener('hashchange', route);
 route();
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol === 'https:' && !window.CODY_NATIVE) navigator.serviceWorker.register('/sw.js').catch(() => {});

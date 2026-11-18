@@ -9,6 +9,7 @@
    GET /api/class -> { enabled } (whether a store is set up; see lib/kv.js) */
 import { kv, kvMode } from '../lib/kv.js';
 import { limited } from '../lib/limit.js';
+import { cors } from '../lib/cors.js';
 
 const KEEP = 60 * 60 * 24 * 180; // a class is kept 180 days after its last change
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I mix-ups
@@ -34,6 +35,7 @@ async function put(code, id, name, points) {
 }
 
 export default async function handler(req, res) {
+  if (cors(req, res)) return;
   if (req.method === 'GET') return res.status(200).json({ ok: true, enabled: kvMode() !== 'off' });
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST only' });
   if (limited(req, 'class', 400)) return res.status(429).json({ ok: false, error: 'Too many tries. Wait a few minutes.' });

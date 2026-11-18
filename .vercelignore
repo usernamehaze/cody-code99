@@ -1,0 +1,6 @@
+tests/
+scripts/
+.env*
+extension/
+android/
+www/

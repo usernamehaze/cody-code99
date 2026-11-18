@@ -1,0 +1,6 @@
+node_modules/
+.vercel/
+.env*
+Cody-extension.zip
+www/
+Cody.apk

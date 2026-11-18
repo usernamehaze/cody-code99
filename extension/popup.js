@@ -31,6 +31,6 @@ $('open').addEventListener('click', async (e) => { e.preventDefault(); await chr
 (async () => { const { app } = await chrome.storage.sync.get('app'); $('app').value = app || ''; $('app').placeholder = DEFAULT_APP; })();
 $('save').addEventListener('click', async () => {
   const v = $('app').value.trim();
-  if (v && !/^https?:\/\/[^\s/]+/.test(v)) return say('Use a full address, like https://cody.vercel.app');
+  if (v && !/^https?:\/\/[^\s/]+/.test(v)) return say('Use a full address, like https://cody-code99.vercel.app');
   await chrome.storage.sync.set({ app: v }); say('Saved.');
 });

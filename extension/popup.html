@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Cody</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header><img src="icons/48.png" alt="" width="32" height="32"><b>Cody</b></header>
+  <button id="page" class="primary">Make a reviewer from this page</button>
+  <button id="sel">Make a reviewer from what I highlighted</button>
+  <form id="draw"><input id="q" placeholder="Ask Cody to draw something…" aria-label="What should Cody draw?" maxlength="200"><button>Draw</button></form>
+  <p id="msg" role="status"></p>
+  <details>
+    <summary>Settings</summary>
+    <label for="app">Cody's address</label>
+    <input id="app" type="url" placeholder="https://cody.vercel.app">
+    <button id="save" class="small">Save</button>
+  </details>
+  <footer><a id="open" href="#">Open Cody</a><span>Right-click highlighted text for more</span></footer>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

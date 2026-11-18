@@ -18,10 +18,10 @@ export function linkParts(rev) {
 }
 
 // one upload: read the file, ask Cody for the reviewer, then (in the background) for its drawing
-export async function makeReviewer({ file, text }, onStatus) {
+export async function makeReviewer({ file, text, name }, onStatus) {
   const t0 = Date.now();
   onStatus('Reading your notes…');
-  const got = file ? await readNotes(file) : { name: 'Pasted notes', pages: 1, notes: text };
+  const got = file ? await readNotes(file) : { name: name || 'Pasted notes', pages: 1, notes: text };
   onStatus('Cody is writing your reviewer…');
   const { data } = await ask('reviewer', { notes: got.notes, file: got.file, fileName: got.name });
   const rev = { ...data, source: { name: got.name, pages: got.pages }, seconds: Math.max(1, Math.round((Date.now() - t0) / 1000)), drawing: null };

@@ -8,6 +8,7 @@ import * as quiz from './views/quiz.js';
 import * as cards from './views/cards.js';
 import * as label from './views/label.js';
 import * as plan from './views/plan.js';
+import * as importer from './views/import.js';
 import * as Class from './classroom.js';
 
 const NAV = [
@@ -15,7 +16,7 @@ const NAV = [
   ['quiz', 'Quiz', '#/quiz', ICON.quiz], ['flashcards', 'Flashcards', '#/flashcards', ICON.cards], ['label', 'Label it! game', '#/label', ICON.game], ['plan', 'Study plan', '#/plan', ICON.plan],
 ];
 const TABS = [['home', 'Home', '#/'], ['reviewers', 'Reviewers', '#/reviewers'], ['draw', 'Draw', '#/draw'], ['label', 'Games', '#/label'], ['plan', 'Me', '#/plan']];
-const SECTION = { reviewer: 'reviewers' };
+const SECTION = { reviewer: 'reviewers', import: 'reviewers' };
 
 const main = document.getElementById('main');
 let cleanup = null;
@@ -48,7 +49,7 @@ function route() {
   const views = {
     home: () => home.render(main), reviewers: () => reviewers.renderList(main, params), reviewer: () => reviewers.renderOne(main, id),
     draw: () => draw.render(main, id, params), quiz: () => quiz.render(main, id), flashcards: () => cards.render(main, id),
-    label: () => label.render(main, id), plan: () => plan.render(main),
+    label: () => label.render(main, id), plan: () => plan.render(main), import: () => importer.render(main, params),
   };
   cleanup = (views[name || 'home'] || views.home)() || null;
   streakCard();

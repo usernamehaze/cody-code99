@@ -2,6 +2,8 @@
 
 **Code 99: CSS Hackathon 2027 · Track 3: EdTech** (with Gamified Learning built in)
 
+**Live:** https://cody-code99.vercel.app
+
 Cody is a study buddy for Filipino students. Upload your notes (a PDF, a photo of your notebook, or pasted
 text) and Cody makes a **reviewer**, **draws the topic step by step** while it explains, then turns the same
 notes into a **quiz**, **flashcards** and a **Label it! game**. It plans every day until your exam.
@@ -143,14 +145,14 @@ SDK licence). Then:
 npm run build:apk        # makes Cody.apk in the project folder
 ```
 
-To point the app at another address: `CODY_URL=https://my-cody.vercel.app npm run build:apk`.
+To point the app at another address: `CODY_URL=https://my-cody-code99.vercel.app npm run build:apk`.
 Install `Cody.apk` on an Android phone (allow *Install unknown apps*), or upload it to Google Drive for Milestone 3.
 `npm run build:mobile` updates the `android/` project without building, so you can open it in Android Studio.
 
-### Deploy to Vercel (https://cody.vercel.app)
+### Deploy to Vercel (https://cody-code99.vercel.app)
 
 1. Sign in at [vercel.com](https://vercel.com) with GitHub, then **Add New → Project** and import `cody-code99`.
-2. Set the **Project Name** to `cody` (this gives `cody.vercel.app` if the name is free). Framework preset:
+2. Set the **Project Name** to `cody-code99` (this gives `cody-code99.vercel.app`; plain `cody` was taken). Framework preset:
    **Other**. Leave the build command empty.
 3. Under **Environment Variables**, add `GROQ_API_KEY`, `GEMINI_API_KEY` and (optionally) `ANTHROPIC_API_KEY`.
 4. For class leaderboards: in the project, open **Storage → Create → Upstash (Redis)**, free plan, and connect it.

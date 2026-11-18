@@ -1,7 +1,7 @@
 /* Shared by the popup and the background worker: where Cody lives, and how text is handed to it.
    The text rides in the link's #fragment, which browsers never send to any server; Cody reads it
    and removes it from the address bar at once (see js/views/import.js in the app). */
-export const DEFAULT_APP = 'https://cody.vercel.app';
+export const DEFAULT_APP = 'https://cody-code99.vercel.app';
 const MAX = 24000; // what Cody reads from one set of notes
 
 export async function appUrl() {

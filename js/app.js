@@ -8,6 +8,7 @@ import * as quiz from './views/quiz.js';
 import * as cards from './views/cards.js';
 import * as label from './views/label.js';
 import * as plan from './views/plan.js';
+import * as Class from './classroom.js';
 
 const NAV = [
   ['home', 'Home', '#/', ICON.home], ['reviewers', 'My reviewers', '#/reviewers', ICON.file], ['draw', 'Draw with Cody', '#/draw', ICON.pencil],
@@ -58,6 +59,7 @@ function route() {
 S.load();
 shell();
 S.onChange(streakCard);
+Class.watch();
 window.addEventListener('hashchange', route);
 route();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});

@@ -1,5 +1,5 @@
 /* npm run dev: Cody on http://localhost:3000, no Vercel account needed.
-   Serves the app's files and runs api/ai.js the way Vercel does. Keys come from a .env file
+   Serves the app's files and runs api/*.js the way Vercel does. Keys come from a .env file
    (GROQ_API_KEY=..., GEMINI_API_KEY=..., ANTHROPIC_API_KEY=...) or the shell. */
 import http from 'node:http';
 import fs from 'node:fs';
@@ -13,7 +13,7 @@ try {
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
   }
 } catch (e) { /* no .env: the samples still work */ }
-const { default: ai } = await import('../api/ai.js');
+const API = { ai: (await import('../api/ai.js')).default, class: (await import('../api/class.js')).default };
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
 const PUBLIC = new Set(['index.html', 'manifest.webmanifest', 'sw.js']);
@@ -21,7 +21,8 @@ const PORT = +process.env.PORT || 3000;
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
-  if (url.pathname === '/api/ai') {
+  const api = url.pathname.match(/^\/api\/(ai|class)$/);
+  if (api) {
     let body = '';
     for await (const c of req) { body += c; if (body.length > 6e6) break; }
     const shim = Object.assign(res, {
@@ -29,7 +30,7 @@ http.createServer(async (req, res) => {
       json(o) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(o)); },
     });
     try { req.body = body ? JSON.parse(body) : {}; } catch (e) { return shim.status(400).json({ ok: false, error: 'bad JSON' }); }
-    return ai(req, shim);
+    return API[api[1]](req, shim);
   }
   let rel = decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html';
   const file = path.join(root, rel);

@@ -6,6 +6,7 @@
    Text tasks try Groq, then Gemini, then Claude. Tasks with a file (a PDF or a photo) try Gemini, then Claude.
    (The same order Cassie's server uses.) Optional: GROQ_MODEL, GEMINI_MODEL, CLAUDE_MODEL. */
 import Anthropic from '@anthropic-ai/sdk';
+import { limited } from '../lib/limit.js';
 import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, checkDrawing, explainPrompt, checkExplain } from '../lib/tasks.js';
 
 const env = (k) => (process.env[k] || '').trim();
@@ -87,19 +88,10 @@ async function ask(prompt, check, file) {
   throw err;
 }
 
-// a light per-address limit, so a public demo link can't empty the free tiers (resets when the function restarts)
-const hits = new Map();
-function limited(ip) {
-  const now = Date.now(), h = (hits.get(ip) || []).filter((t) => now - t < 60 * 60 * 1000);
-  h.push(now); hits.set(ip, h);
-  return h.length > 60;
-}
-
 export default async function handler(req, res) {
   if (req.method === 'GET') return res.status(200).json({ ok: true, providers: ORDER.filter((n) => env(PROVIDERS[n].key)) });
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST only' });
-  const ip = String(req.headers['x-forwarded-for'] || 'local').split(',')[0].trim();
-  if (limited(ip)) return res.status(429).json({ ok: false, error: 'Cody needs a short break. Try again in a few minutes.' });
+  if (limited(req, 'ai', 60)) return res.status(429).json({ ok: false, error: 'Cody needs a short break. Try again in a few minutes.' });
   const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
   let file = null;
   if (body.file && body.file.data) {

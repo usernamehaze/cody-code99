@@ -1,0 +1,127 @@
+/* POST /api/ai  { task: 'reviewer' | 'draw' | 'explain', ...input }  ->  { ok, data, by }
+   One small Vercel function holds the API keys (as Vercel environment variables, never in the app):
+     GROQ_API_KEY       Groq, the main brain for text (free tier, fast)
+     GEMINI_API_KEY     Google Gemini: reads PDFs and photos, and backs up Groq
+     ANTHROPIC_API_KEY  Claude: optional, the last backup (and the best at drawings)
+   Text tasks try Groq, then Gemini, then Claude. Tasks with a file (a PDF or a photo) try Gemini, then Claude.
+   (The same order Cassie's server uses.) Optional: GROQ_MODEL, GEMINI_MODEL, CLAUDE_MODEL. */
+import Anthropic from '@anthropic-ai/sdk';
+import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, checkDrawing, explainPrompt, checkExplain } from '../lib/tasks.js';
+
+const env = (k) => (process.env[k] || '').trim();
+const GROQ_MODEL = () => env('GROQ_MODEL') || 'llama-3.3-70b-versatile';
+const GEMINI_MODEL = () => env('GEMINI_MODEL') || 'gemini-flash-latest';
+const CLAUDE_MODEL = () => env('CLAUDE_MODEL') || 'claude-opus-5-5';
+const MAX_FILE = 3.5 * 1024 * 1024; // Vercel takes request bodies up to 4.5 MB
+
+function parseJSON(text) {
+  const s = String(text || ''); const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a < 0 || b <= a) throw new Error('no JSON in the answer');
+  return JSON.parse(s.slice(a, b + 1));
+}
+
+async function groq(prompt) {
+  const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST', signal: AbortSignal.timeout(45000),
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${env('GROQ_API_KEY')}` },
+    body: JSON.stringify({ model: GROQ_MODEL(), temperature: 0.4, max_tokens: 8000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] }),
+  });
+  if (!r.ok) throw new Error(`Groq ${r.status}`);
+  const j = await r.json();
+  return parseJSON(j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content);
+}
+
+async function gemini(prompt, file) {
+  const parts = [];
+  if (file) parts.push({ inline_data: { mime_type: file.type, data: file.data } });
+  parts.push({ text: prompt });
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL())}:generateContent`, {
+    method: 'POST', signal: AbortSignal.timeout(55000),
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': env('GEMINI_API_KEY') },
+    body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } }),
+  });
+  if (!r.ok) throw new Error(`Gemini ${r.status}`);
+  const j = await r.json();
+  const text = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('');
+  return parseJSON(text);
+}
+
+let claudeClient = null;
+async function claude(prompt, file) {
+  claudeClient = claudeClient || new Anthropic({ apiKey: env('ANTHROPIC_API_KEY'), timeout: 55000, maxRetries: 1 });
+  const content = [];
+  if (file && file.type === 'application/pdf') content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: file.data } });
+  else if (file) content.push({ type: 'image', source: { type: 'base64', media_type: file.type, data: file.data } });
+  content.push({ type: 'text', text: prompt });
+  // fallbacks: 'default' lets the API rerun a declined request on a fallback model inside the same call
+  const msg = await claudeClient.beta.messages.create({
+    model: CLAUDE_MODEL(), max_tokens: 16000, system: SYSTEM,
+    output_config: { effort: 'low' },
+    betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
+    messages: [{ role: 'user', content }],
+  });
+  if (msg.stop_reason === 'refusal') throw new Error('Claude declined');
+  return parseJSON(msg.content.filter((b) => b.type === 'text').map((b) => b.text).join(''));
+}
+
+const PROVIDERS = { groq: { key: 'GROQ_API_KEY', run: groq, files: false }, gemini: { key: 'GEMINI_API_KEY', run: gemini, files: true }, claude: { key: 'ANTHROPIC_API_KEY', run: claude, files: true } };
+const ORDER = ['groq', 'gemini', 'claude'];
+
+// ask each brain in turn; check() turns its JSON into clean data or says what to fix (one retry with the reason)
+async function ask(prompt, check, file) {
+  const tried = [];
+  for (const name of ORDER) {
+    const p = PROVIDERS[name];
+    if (!env(p.key) || (file && !p.files)) continue;
+    let q = prompt;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const out = check(await p.run(q, file));
+        if (out && out.ok !== false) return { data: out.spec || out, by: name };
+        q = `${prompt}\n\nYour last answer could not be used${out && out.why ? `: ${out.why}` : ''}. Try again, following the shape exactly.`;
+      } catch (e) { tried.push(`${name}: ${e.message}`); break; }
+    }
+  }
+  const err = new Error(tried.length ? 'All AI providers failed' : 'No AI key is set on the server');
+  err.detail = tried; err.status = tried.length ? 502 : 503;
+  throw err;
+}
+
+// a light per-address limit, so a public demo link can't empty the free tiers (resets when the function restarts)
+const hits = new Map();
+function limited(ip) {
+  const now = Date.now(), h = (hits.get(ip) || []).filter((t) => now - t < 60 * 60 * 1000);
+  h.push(now); hits.set(ip, h);
+  return h.length > 60;
+}
+
+export default async function handler(req, res) {
+  if (req.method === 'GET') return res.status(200).json({ ok: true, providers: ORDER.filter((n) => env(PROVIDERS[n].key)) });
+  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST only' });
+  const ip = String(req.headers['x-forwarded-for'] || 'local').split(',')[0].trim();
+  if (limited(ip)) return res.status(429).json({ ok: false, error: 'Cody needs a short break. Try again in a few minutes.' });
+  const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
+  let file = null;
+  if (body.file && body.file.data) {
+    const type = String(body.file.type || '');
+    if (!/^(application\/pdf|image\/(png|jpeg|webp|gif))$/.test(type)) return res.status(400).json({ ok: false, error: 'Use a PDF, a photo, or paste your notes.' });
+    if (body.file.data.length * 0.75 > MAX_FILE) return res.status(413).json({ ok: false, error: 'That file is too big. Try a smaller PDF, or paste the text.' });
+    file = { type, data: String(body.file.data) };
+  }
+  try {
+    let out;
+    if (body.task === 'reviewer') {
+      if (!file && !String(body.notes || '').trim()) return res.status(400).json({ ok: false, error: 'Add some notes first.' });
+      out = await ask(reviewerPrompt({ notes: body.notes, fileName: body.fileName }), checkReviewer, file);
+    } else if (body.task === 'draw') {
+      if (!String(body.question || '').trim()) return res.status(400).json({ ok: false, error: 'Ask Cody what to draw.' });
+      out = await ask(drawPrompt({ question: body.question, context: body.context }), checkDrawing, null);
+    } else if (body.task === 'explain') {
+      out = await ask(explainPrompt(body), checkExplain, null);
+    } else return res.status(400).json({ ok: false, error: 'Unknown task' });
+    return res.status(200).json({ ok: true, ...out });
+  } catch (e) {
+    console.error('ai', body.task, e.message, e.detail || '');
+    return res.status(e.status || 500).json({ ok: false, error: e.status === 503 ? 'Cody’s AI is not set up on this server yet. The sample reviewers still work.' : 'Cody could not finish that one. Please try again.' });
+  }
+}

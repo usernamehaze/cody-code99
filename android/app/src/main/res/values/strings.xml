@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Cody</string>
+    <string name="title_activity_main">Cody</string>
+    <string name="package_name">app.cody.study</string>
+    <string name="custom_url_scheme">app.cody.study</string>
+</resources>

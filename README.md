@@ -130,6 +130,23 @@ You need **Node.js 20 or newer** ([nodejs.org](https://nodejs.org)).
 Optional settings: `GROQ_MODEL` (default `llama-3.3-70b-versatile`), `GEMINI_MODEL` (default
 `gemini-flash-latest`), `CLAUDE_MODEL` (default `claude-opus-5-5`; set `claude-haiku-5-5` for a cheaper backup).
 
+### Build the Android app (Cody.apk)
+
+The Android app is the same Cody, wrapped with [Capacitor](https://capacitorjs.com): the screens are
+inside the phone (the samples work offline), and AI and class boards go to the deployed site.
+
+You need **Java 21** and the **Android SDK** (the easiest way is to install
+[Android Studio](https://developer.android.com/studio), which installs both and asks you to accept Google's
+SDK licence). Then:
+
+```bash
+npm run build:apk        # makes Cody.apk in the project folder
+```
+
+To point the app at another address: `CODY_URL=https://my-cody.vercel.app npm run build:apk`.
+Install `Cody.apk` on an Android phone (allow *Install unknown apps*), or upload it to Google Drive for Milestone 3.
+`npm run build:mobile` updates the `android/` project without building, so you can open it in Android Studio.
+
 ### Deploy to Vercel (https://cody.vercel.app)
 
 1. Sign in at [vercel.com](https://vercel.com) with GitHub, then **Add New → Project** and import `cody-code99`.

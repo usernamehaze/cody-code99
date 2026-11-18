@@ -68,3 +68,12 @@ test('a bad drawing is sent back once with the reason', async () => {
     assert.match(prompts[0], /right atrium/, 'the heart prompt lists the parts a textbook figure shows');
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('the Android app (https://localhost) may call the API; other sites get no CORS header', async () => {
+  const { default: handler } = await import('../api/ai.js');
+  const mk = (origin) => { const h = {}; const res = { statusCode: 0, setHeader: (k, v) => { h[k] = v; }, end() {}, status(c) { this.statusCode = c; return this; }, json() { return this; } }; return { res, h, req: { method: 'OPTIONS', headers: { origin } } }; };
+  const a = mk('https://localhost'); await handler(a.req, a.res);
+  assert.equal(a.res.statusCode, 204); assert.equal(a.h['access-control-allow-origin'], 'https://localhost');
+  const b = mk('https://evil.example'); await handler(b.req, b.res);
+  assert.equal(b.h['access-control-allow-origin'], undefined);
+});

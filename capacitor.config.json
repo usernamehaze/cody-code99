@@ -1,0 +1,7 @@
+{
+  "appId": "app.cody.study",
+  "appName": "Cody",
+  "webDir": "www",
+  "android": { "backgroundColor": "#0e1626" },
+  "server": { "androidScheme": "https" }
+}

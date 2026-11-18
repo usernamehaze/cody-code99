@@ -1,0 +1,10 @@
+{
+  "name": "Cody · Study Buddy",
+  "short_name": "Cody",
+  "description": "Your notes, turned into reviewers, drawings, quizzes, flashcards and games.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e1626",
+  "theme_color": "#0e1626",
+  "icons": [{ "src": "/icons/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

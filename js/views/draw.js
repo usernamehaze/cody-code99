@@ -1,0 +1,121 @@
+import * as S from '../store.js';
+import { ask } from '../ai.js';
+import { mount, clean } from '../draw.js';
+import { sampleFor } from '../samples.js';
+import { linkParts } from './reviewers.js';
+import { esc, header, LOGO, ICON, speak, hush, toast } from '../ui.js';
+
+let last = null; // the latest drawing asked for here, so Save to reviewer and Label it! can use it
+
+// a reviewer made from a drawing alone: each part is a term, a card and a quiz question
+export function reviewerFromDrawing(spec, question) {
+  const parts = spec.parts.filter((p) => p.label);
+  const labels = parts.map((p) => p.label);
+  const quiz = parts.filter((p) => p.say).map((p, i) => {
+    const others = labels.filter((l) => l !== p.label).sort(() => Math.random() - 0.5).slice(0, 3);
+    const choices = [...others, p.label].sort(() => Math.random() - 0.5);
+    const hide = new RegExp(p.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig');
+    return { q: `Which part is this? "${p.say.replace(hide, '___')}"`, choices, a: choices.indexOf(p.label), why: p.say, part: p.id };
+  }).filter((q) => q.choices.length === 4);
+  return {
+    title: spec.title, subject: '', source: { name: `Asked: ${question}`.slice(0, 60), pages: 1 },
+    terms: parts.map((p) => ({ term: p.label, meaning: p.say, part: p.id })),
+    questions: parts.slice(0, 3).map((p) => `What does the ${p.label.toLowerCase()} do?`),
+    quiz, cards: parts.map((p) => ({ front: p.label, back: p.say, part: p.id })), drawing: spec, game: parts.slice(0, 6).map((p) => p.id),
+  };
+}
+
+export function render(root, id, params) {
+  const rev = id ? S.reviewer(id) : null;
+  const q = params.get('q') || '';
+  let spec = rev && rev.drawing ? rev.drawing : null;
+  let asked = rev ? `Explain ${rev.title.toLowerCase()}` : q;
+  if (!spec && q) { const sm = sampleFor(q); if (sm) spec = sm.drawing; }
+  if (!spec && !q && last) { spec = last.spec; asked = last.question; }
+
+  root.innerHTML = `
+    ${header('Draw with Cody', asked ? `You asked: ${asked}` : 'Ask anything. Cody draws it and explains it step by step.', `<span class="pill status-pill" hidden><span class="mini-logo">${LOGO}</span><span class="st"></span></span>`)}
+    <form class="ask">
+      <input name="q" placeholder="Ask Cody to draw something, e.g. how does the water cycle work?" value="${esc(rev ? '' : q)}" aria-label="What should Cody draw?">
+      <button class="btn primary">Draw it</button>
+    </form>
+    <div class="chips">${['How does the water cycle work?', 'Parts of the human heart', 'How photosynthesis works', 'The plant cell'].map((c) => `<button class="chip" type="button">${c}</button>`).join('')}</div>
+    <section class="split grow">
+      <div class="card"><h2 class="board-title">${esc(spec ? spec.title : 'Your drawing')}</h2><div class="board" id="board">${spec ? '' : '<p class="muted center">Ask a question above, or pick one of the examples.</p>'}</div></div>
+      <div class="card explain">
+        <h2 class="eyebrow">Cody explains</h2>
+        <ol class="steps"></ol>
+        <div class="controls">
+          <button class="btn back">Back</button><button class="btn primary play">Pause</button><button class="btn next">Next</button>
+          <button class="btn voice" aria-pressed="false">${ICON.sound}<span>Voice</span></button>
+        </div>
+        <div class="controls two"><button class="btn to-game">Play Label it!</button><button class="btn save">Save to reviewer</button></div>
+      </div>
+    </section>`;
+
+  const form = root.querySelector('.ask');
+  const go = (text) => { location.hash = '#/draw?q=' + encodeURIComponent(text); };
+  form.addEventListener('submit', (e) => { e.preventDefault(); const t = form.q.value.trim(); if (t) go(t); });
+  root.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => go(c.textContent)));
+
+  const stepsEl = root.querySelector('.steps'), pill = root.querySelector('.status-pill'), st = pill.querySelector('.st');
+  const playBtn = root.querySelector('.play'), voiceBtn = root.querySelector('.voice');
+  let ctl = null, playing = true, voice = false, gen = 0;
+
+  const status = (text) => { pill.hidden = !text; st.textContent = text; };
+  async function run(from) {
+    const my = ++gen;
+    for (let i = from; i < ctl.count; i++) {
+      if (my !== gen) return;
+      const done = await ctl.go(i);
+      if (!done || my !== gen) return;
+      await new Promise((r) => { if (voice) speak(ctl.spec.parts[i].say, r); else setTimeout(r, 1400 + ctl.spec.parts[i].say.length * 22); });
+      if (my !== gen || !playing) return;
+    }
+    if (my === gen) { status('Done! Try Label it! next.'); playing = false; playBtn.textContent = 'Replay'; S.award(8, 2); if (rev) S.markPlan('draw-' + rev.id); }
+  }
+  function show(sp, question) {
+    ctl = mount(root.querySelector('#board'), sp, { numbered: true, labels: 'steps', onStep: (i) => {
+      [...stepsEl.children].forEach((li, k) => li.classList.toggle('now', k === i));
+      status(`Cody is drawing… step ${i + 1} of ${sp.parts.length}`);
+    } });
+    if (!ctl) return;
+    root.querySelector('.board-title').textContent = ctl.spec.title;
+    stepsEl.innerHTML = ctl.spec.parts.map((p, i) => `<li><button data-i="${i}">${i + 1}. ${esc(p.label && !p.say.toLowerCase().startsWith(p.label.toLowerCase()) ? p.label + ': ' : '')}${esc(p.say)}</button></li>`).join('');
+    stepsEl.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { playing = false; playBtn.textContent = 'Play'; hush(); gen++; ctl.go(+b.dataset.i); }));
+    last = { spec: ctl.spec, question };
+    const start = Math.max(0, ctl.spec.parts.findIndex((p) => p.id === params.get('part')));
+    playing = true; playBtn.textContent = 'Pause';
+    run(start);
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (!ctl) return;
+    if (playing) { playing = false; gen++; hush(); playBtn.textContent = 'Play'; return; }
+    playing = true; playBtn.textContent = 'Pause';
+    const at = ctl.step >= ctl.count - 1 ? 0 : ctl.step + 1; run(at);
+  });
+  root.querySelector('.next').addEventListener('click', () => { if (!ctl) return; gen++; hush(); playing = false; playBtn.textContent = 'Play'; ctl.go(ctl.step + 1); });
+  root.querySelector('.back').addEventListener('click', () => { if (!ctl) return; gen++; hush(); playing = false; playBtn.textContent = 'Play'; ctl.go(ctl.step - 1, false); });
+  voiceBtn.addEventListener('click', () => { voice = !voice; voiceBtn.setAttribute('aria-pressed', voice); voiceBtn.classList.toggle('on', voice); if (voice && ctl && ctl.step >= 0) speak(ctl.spec.parts[ctl.step].say); else hush(); });
+
+  function saved() { // the reviewer this drawing belongs to (making one the first time)
+    if (rev) return rev;
+    const found = S.get().reviewers.find((r) => r.drawing && r.drawing.title === ctl.spec.title);
+    if (found) return found;
+    const r = S.addReviewer(linkParts(reviewerFromDrawing(ctl.spec, asked)));
+    return r;
+  }
+  root.querySelector('.save').addEventListener('click', () => { if (!ctl) return; const r = saved(); toast(`Saved to "${r.title}"`); location.hash = '#/reviewer/' + r.id; });
+  root.querySelector('.to-game').addEventListener('click', () => { if (!ctl) return; const r = saved(); location.hash = '#/label/' + r.id; });
+
+  if (spec) show(spec, asked);
+  else if (q) {
+    status('Cody is thinking about how to draw it…');
+    root.querySelector('#board').innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+    const my = gen;
+    ask('draw', { question: q }).then(({ data }) => { if (my !== gen || !root.isConnected) return; const sp = clean(data); if (!sp) throw new Error('Cody could not draw that one. Try asking another way.'); show(sp, q); })
+      .catch((e) => { status(''); root.querySelector('#board').innerHTML = `<p class="muted center">${esc(e.message)}</p>`; });
+  }
+  return () => { gen++; hush(); if (ctl) ctl.stop(); };
+}

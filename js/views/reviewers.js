@@ -4,6 +4,8 @@ import { readNotes } from '../notes.js';
 import { mount, clean } from '../draw.js';
 import { esc, header, ICON, toast } from '../ui.js';
 import { say } from '../mascot.js';
+import { md } from '../md.js';
+import { SAMPLES } from '../samples.js';
 
 // match a term ("Atria") to a part of the drawing ("Right atrium"), so Draw it and the quiz can point at it
 const stem = (w) => w.toLowerCase().replace(/[^a-z ]/g, '').replace(/(ia|ium|ae|es|s)$/, '');
@@ -26,15 +28,29 @@ export async function makeReviewer({ file, text, name }, onStatus) {
   onStatus('Cody is writing your reviewer…');
   const { data } = await ask('reviewer', { notes: got.notes, file: got.file, fileName: got.name });
   const rev = { ...data, source: { name: got.name, pages: got.pages }, seconds: Math.max(1, Math.round((Date.now() - t0) / 1000)), drawing: null };
+  rev.guideState = 'writing';
   S.addReviewer(rev);
+  const refresh = () => { if (location.hash.startsWith('#/reviewer/' + rev.id)) window.dispatchEvent(new HashChangeEvent('hashchange')); };
+  // the full study guide (like a printed reviewer) is longer, so it is written in the background too
+  ask('guide', { notes: got.notes, file: got.file, fileName: got.name }).then(({ data: g }) => {
+    const r = S.reviewer(rev.id); if (!r) return;
+    r.guide = g.markdown; r.guideState = 'done'; S.save(); refresh();
+  }).catch(() => { const r = S.reviewer(rev.id); if (r) { r.guideState = 'failed'; S.save(); refresh(); } });
   if (data.drawable) {
     ask('draw', { question: data.drawable, context: data.summary }).then(({ data: spec }) => {
       const r = S.reviewer(rev.id); if (!r) return;
       r.drawing = clean(spec); linkParts(r); S.save();
-      if (location.hash.startsWith('#/reviewer/' + rev.id)) window.dispatchEvent(new HashChangeEvent('hashchange'));
+      refresh();
     }).catch(() => { /* no drawing: the reviewer still works */ });
   }
   return rev;
+}
+
+// a study guide made from the reviewer's own parts, for the samples and reviewers made before study guides existed
+export function guideFrom(r) {
+  const rows = r.terms.map((t) => `| **${t.term}** | ${t.meaning} |`).join('\n');
+  const qs = [...(r.questions || []), ...r.quiz.slice(0, 5).map((q) => q.q)].filter((q, i, a) => a.indexOf(q) === i).slice(0, 8);
+  return `# REVIEWER: ${r.title}\n*(Made by Cody from ${r.source ? r.source.name : 'your notes'})*\n\n---\n\n## 1. The big picture\n${r.summary || `This reviewer covers ${r.title.toLowerCase()}: ${r.terms.slice(0, 4).map((t) => t.term).join(', ')} and more.`}\n\n---\n\n## 2. Key ideas\n${r.terms.map((t) => `- **${t.term}**: ${t.meaning}`).join('\n')}\n\n---\n\n## 3. Key terms to remember\n| Term | Meaning |\n|---|---|\n${rows}\n\n---\n\n## 4. Review questions\n${qs.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n---\n\n*End of reviewer: ${r.title}*`;
 }
 
 function uploadZone() {
@@ -85,13 +101,23 @@ export function renderList(root, params) {
 export function renderOne(root, id) {
   const r = S.reviewer(id);
   if (!r) { location.hash = '#/reviewers'; return; }
+  if (!r.guide) { const sm = SAMPLES.find((x) => x.id === r.id); if (sm && sm.guide) r.guide = sm.guide; } // (samples saved before they had a guide)
   root.innerHTML = `
     ${header(`Reviewer: ${r.title}`, r.seconds ? `Made by Cody from your notes in ${r.seconds} seconds` : 'Made by Cody from your notes', `
       <a class="btn" href="#/chat?about=${esc(r.id)}">${ICON.chat} Ask Cody about this</a><a class="btn" href="#/flashcards/${esc(r.id)}">Make flashcards</a><a class="btn primary" href="#/quiz/${esc(r.id)}">Quiz me on this</a>`)}
     <section class="grid-2 grow">
       <div class="col">
         ${r.drawing ? `<div class="card mobile-first"><div class="board sm" id="rev-draw"></div></div>` : ''}
-        <div class="card">
+        <div class="tabs-row" role="tablist" aria-label="Reviewer view">
+          <button class="tab on" role="tab" aria-selected="true" data-v="guide">Study guide</button><button class="tab" role="tab" aria-selected="false" data-v="terms">Key terms</button>
+        </div>
+        <div class="card guide-card" data-v="guide">
+          <div class="guide-tools">${r.guide || r.guideState !== 'writing' ? `<button class="btn small save-pdf">${ICON.file} Save as PDF</button><button class="btn small copy-guide">${ICON.copy} Copy</button>` : ''}</div>
+          ${r.guideState === 'writing' && !r.guide ? `<div class="guide-wait"><div class="thinking"><span></span><span></span><span></span></div><p>Cody is writing your full study guide. The key terms, quiz and flashcards are ready now.</p></div>` : ''}
+          ${r.guide || r.guideState !== 'writing' ? `<article class="guide-doc">${md(r.guide || guideFrom(r), { headings: 'doc' })}</article>` : ''}
+          ${r.guideState === 'failed' ? `<p class="muted small">Cody could not write the long study guide this time, so this one is made from your key terms.</p>` : ''}
+        </div>
+        <div class="card terms-card" data-v="terms" hidden>
           <h2 class="eyebrow">Key terms</h2>
           ${r.summary ? `<p class="summary">${esc(r.summary)}</p>` : ''}
           <dl class="terms">${r.terms.map((t, i) => `
@@ -114,5 +140,21 @@ export function renderOne(root, id) {
   if (r.drawing) { const c = mount(root.querySelector('#rev-draw'), r.drawing, {}); if (c) c.showAll(); }
   const del = root.querySelector('.del');
   if (del) del.addEventListener('click', () => { if (confirm(`Delete "${r.title}" and its flashcards?`)) { S.removeReviewer(r.id); location.hash = '#/reviewers'; } });
+  root.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
+    root.querySelectorAll('.tab').forEach((x) => { const on = x === t; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
+    root.querySelector('.guide-card').hidden = t.dataset.v !== 'guide';
+    root.querySelector('.terms-card').hidden = t.dataset.v !== 'terms';
+  }));
+  const pdf = root.querySelector('.save-pdf');
+  if (pdf) pdf.addEventListener('click', () => {
+    // the browser's print dialog, with only the study guide on white paper: choose "Save as PDF" there
+    document.documentElement.classList.add('print-guide');
+    const done = () => { document.documentElement.classList.remove('print-guide'); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    window.print();
+    setTimeout(done, 1500);
+  });
+  const copy = root.querySelector('.copy-guide');
+  if (copy) copy.addEventListener('click', () => navigator.clipboard.writeText(r.guide || guideFrom(r)).then(() => toast('Study guide copied'), () => toast('Could not copy')));
   S.markPlan('read-' + r.id);
 }

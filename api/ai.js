@@ -8,7 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { limited } from '../lib/limit.js';
 import { cors } from '../lib/cors.js';
-import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, checkDrawing, explainPrompt, checkExplain, chatPrompt, checkChat } from '../lib/tasks.js';
+import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, checkDrawing, explainPrompt, checkExplain, chatPrompt, checkChat, guidePrompt, checkGuide } from '../lib/tasks.js';
 
 const env = (k) => (process.env[k] || '').trim();
 // Providers retire model names over time, so each has a list, best first (the same lists Cassie uses).
@@ -38,7 +38,7 @@ function parseJSON(text) {
 }
 
 const groq = (prompt) => eachModel(GROQ_MODELS(), async (model) => {
-  const body = { model, temperature: 0.4, max_tokens: 8000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] };
+  const body = { model, temperature: 0.4, max_tokens: 12000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] };
   if (/gpt-oss/.test(model)) body.reasoning_effort = 'low'; // (quick answers; these models think first)
   const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST', signal: AbortSignal.timeout(30000),
@@ -127,6 +127,9 @@ export default async function handler(req, res) {
     if (body.task === 'reviewer') {
       if (!file && !String(body.notes || '').trim()) return res.status(400).json({ ok: false, error: 'Add some notes first.' });
       out = await ask(reviewerPrompt({ notes: body.notes, fileName: body.fileName }), checkReviewer, file);
+    } else if (body.task === 'guide') {
+      if (!file && !String(body.notes || '').trim()) return res.status(400).json({ ok: false, error: 'Add some notes first.' });
+      out = await ask(guidePrompt({ notes: body.notes, fileName: body.fileName }), checkGuide, file);
     } else if (body.task === 'draw') {
       if (!String(body.question || '').trim()) return res.status(400).json({ ok: false, error: 'Ask Cody what to draw.' });
       out = await ask(drawPrompt({ question: body.question, context: body.context }), checkDrawing, null);

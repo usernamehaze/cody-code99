@@ -393,3 +393,47 @@ svg { display: block; }
   .followups { padding-left: 0; }
   .composer { padding: 10px; }
 }
+
+/* ---------- the study guide (a reviewer you can read and save as PDF) ---------- */
+.tabs-row { display: flex; gap: 6px; background: var(--card); border: 1px solid var(--line); padding: 5px; border-radius: 999px; align-self: flex-start; }
+.tab { background: none; border: 0; border-radius: 999px; padding: 9px 20px; font-weight: 700; color: var(--muted); }
+.tab.on { background: var(--teal); color: var(--teal-ink); }
+.guide-card { position: relative; }
+.guide-tools { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 8px; flex-wrap: wrap; }
+.guide-wait { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 10px; text-align: center; color: var(--muted); }
+.guide-doc { font-size: 16.5px; line-height: 1.65; color: #e2e8f0; max-width: 72ch; }
+.guide-doc h2 { font-size: 30px; line-height: 1.2; margin: 4px 0 6px; color: var(--ink); text-wrap: balance; }
+.guide-doc h3 { font-size: 21px; margin: 4px 0 10px; color: var(--ink); }
+.guide-doc h4 { font-size: 17px; margin: 18px 0 6px; color: var(--teal); }
+.guide-doc p { margin: 0 0 12px; }
+.guide-doc ul, .guide-doc ol { margin: 0 0 14px; padding-left: 24px; }
+.guide-doc li { margin: 5px 0; }
+.guide-doc b { color: var(--ink); }
+.guide-doc hr { border: 0; border-top: 1px solid var(--line-2); margin: 24px 0; }
+.guide-doc blockquote { margin: 0 0 14px; padding: 10px 16px; border-left: 4px solid var(--teal); background: var(--raised); border-radius: 0 10px 10px 0; color: var(--ink); }
+.md-table { overflow-x: auto; margin: 0 0 16px; }
+.md-table table { border-collapse: collapse; width: 100%; font-size: 15px; }
+.md-table th, .md-table td { border: 1px solid var(--line-2); padding: 9px 12px; text-align: left; vertical-align: top; }
+.md-table th { background: var(--raised); color: var(--ink); }
+.msg.cody .text .md-table { margin: 8px 0; }
+.msg.cody .text blockquote { margin: 8px 0; padding: 8px 14px; border-left: 3px solid var(--teal); background: var(--bg); border-radius: 0 8px 8px 0; }
+.msg.cody .text hr { border: 0; border-top: 1px solid var(--line-2); margin: 12px 0; }
+
+/* Save as PDF: only the study guide, black on white */
+@media print {
+  html.print-guide body > *:not(.main) { display: none !important; }
+  html.print-guide .main { margin: 0 !important; padding: 0 !important; }
+  html.print-guide .main > *:not(.grid-2) { display: none !important; }
+  html.print-guide .grid-2 > .col:last-child, html.print-guide .tabs-row, html.print-guide .guide-tools,
+  html.print-guide .terms-card, html.print-guide .mobile-first, html.print-guide .guide-card > p { display: none !important; }
+  html.print-guide .grid-2 { display: block !important; }
+  html.print-guide body, html.print-guide .guide-card { background: #fff !important; color: #111 !important; border: 0 !important; padding: 0 !important; }
+  html.print-guide .guide-card { display: block !important; }
+  html.print-guide .guide-doc { color: #222 !important; max-width: none; font-size: 12pt; }
+  html.print-guide .guide-doc h2, html.print-guide .guide-doc h3, html.print-guide .guide-doc b { color: #000 !important; }
+  html.print-guide .guide-doc h4 { color: #0f766e !important; }
+  html.print-guide .guide-doc blockquote, html.print-guide .md-table th { background: #f3f4f6 !important; color: #111 !important; }
+  html.print-guide .md-table th, html.print-guide .md-table td { border-color: #d1d5db !important; color: #111 !important; }
+  html.print-guide .guide-doc hr { border-top-color: #d1d5db !important; }
+  html.print-guide .guide-doc h3 { break-after: avoid; }
+}

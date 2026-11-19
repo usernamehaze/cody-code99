@@ -96,3 +96,10 @@ test('a retired Groq model is skipped and the next one answers', async () => {
     assert.deepEqual(models, ['llama-3.3-70b-versatile'], 'the retired name is not tried again');
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('checkGuide wants a real reviewer with headings', async () => {
+  const { checkGuide } = await import('../lib/tasks.js');
+  assert.equal(checkGuide({ markdown: 'too short' }).ok, false);
+  const good = '# REVIEWER: Topic\n\n## 1. The big picture\n' + 'Text. '.repeat(80);
+  assert.ok(checkGuide({ markdown: good }).markdown.startsWith('# REVIEWER'));
+});

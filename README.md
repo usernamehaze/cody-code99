@@ -129,8 +129,10 @@ You need **Node.js 20 or newer** ([nodejs.org](https://nodejs.org)).
    **Developer mode**, click **Load unpacked** and pick the folder. For a local Cody, open the popup →
    Settings and set `http://localhost:3000`.
 
-Optional settings: `GROQ_MODEL` (default `llama-3.3-70b-versatile`), `GEMINI_MODEL` (default
-`gemini-flash-latest`), `CLAUDE_MODEL` (default `claude-opus-5-5`; set `claude-haiku-5-5` for a cheaper backup).
+Optional settings: `GROQ_MODEL`, `GEMINI_MODEL` and `CLAUDE_MODEL` (tried first). Without them Cody tries
+`openai/gpt-oss-120b`, `llama-3.3-70b-versatile` and `openai/gpt-oss-20b` on Groq, then `gemini-flash-latest` and
+`gemini-flash-lite-latest`, then `claude-opus-5-5` (set `claude-haiku-5-5` for a cheaper backup). A model a
+provider has retired is skipped automatically.
 
 ### Build the Android app (Cody.apk)
 

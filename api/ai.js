@@ -4,15 +4,28 @@
      GEMINI_API_KEY     Google Gemini: reads PDFs and photos, and backs up Groq
      ANTHROPIC_API_KEY  Claude: optional, the last backup (and the best at drawings)
    Text tasks try Groq, then Gemini, then Claude. Tasks with a file (a PDF or a photo) try Gemini, then Claude.
-   (The same order Cassie's server uses.) Optional: GROQ_MODEL, GEMINI_MODEL, CLAUDE_MODEL. */
+   (The same order Cassie's server uses.) Optional: GROQ_MODEL, GEMINI_MODEL, CLAUDE_MODEL (tried first). */
 import Anthropic from '@anthropic-ai/sdk';
 import { limited } from '../lib/limit.js';
 import { cors } from '../lib/cors.js';
 import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, checkDrawing, explainPrompt, checkExplain, chatPrompt, checkChat } from '../lib/tasks.js';
 
 const env = (k) => (process.env[k] || '').trim();
-const GROQ_MODEL = () => env('GROQ_MODEL') || 'llama-3.3-70b-versatile';
-const GEMINI_MODEL = () => env('GEMINI_MODEL') || 'gemini-flash-latest';
+// Providers retire model names over time, so each has a list, best first (the same lists Cassie uses).
+// A name the provider says is gone is skipped from then on; a busy or slow one passes to the next.
+const GROQ_MODELS = () => [env('GROQ_MODEL'), 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b'].filter(Boolean);
+const GEMINI_MODELS = () => [env('GEMINI_MODEL'), 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean);
+const gone = new Set();
+const isGone = (status, msg) => status === 404 || /decommission|does not exist|not found|no longer|deprecated|not supported/i.test(msg);
+async function eachModel(names, run) {
+  const reasons = [];
+  for (const m of [...new Set(names)].filter((x) => !gone.has(x))) {
+    try { return await run(m); }
+    catch (e) { if (e.gone) gone.add(m); reasons.push(`${m}: ${e.message}`); }
+  }
+  throw new Error(reasons.join(' | ') || 'no model left');
+}
+const fail = async (name, r) => { const msg = await why(r); return Object.assign(new Error(`${name} ${r.status} ${msg}`), { gone: isGone(r.status, msg) }); };
 const CLAUDE_MODEL = () => env('CLAUDE_MODEL') || 'claude-opus-5-5';
 // a provider's own short reason ("model not found", "quota exceeded"), never the key
 const why = async (r) => { try { const j = await r.json(); const e = j.error || j; return String(e.message || e.status || '').slice(0, 160); } catch (e) { return ''; } };
@@ -24,27 +37,30 @@ function parseJSON(text) {
   return JSON.parse(s.slice(a, b + 1));
 }
 
-async function groq(prompt) {
+const groq = (prompt) => eachModel(GROQ_MODELS(), async (model) => {
+  const body = { model, temperature: 0.4, max_tokens: 8000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] };
+  if (/gpt-oss/.test(model)) body.reasoning_effort = 'low'; // (quick answers; these models think first)
   const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST', signal: AbortSignal.timeout(45000),
+    method: 'POST', signal: AbortSignal.timeout(30000),
     headers: { 'content-type': 'application/json', authorization: `Bearer ${env('GROQ_API_KEY')}` },
-    body: JSON.stringify({ model: GROQ_MODEL(), temperature: 0.4, max_tokens: 8000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] }),
+    body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(`Groq ${r.status} ${await why(r)}`);
+  if (!r.ok) throw await fail('Groq', r);
   const j = await r.json();
   return parseJSON(j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content);
-}
+});
 
-async function gemini(prompt, file) {
+const gemini = (prompt, file) => eachModel(GEMINI_MODELS(), (model) => geminiOnce(model, prompt, file));
+async function geminiOnce(model, prompt, file) {
   const parts = [];
   if (file) parts.push({ inline_data: { mime_type: file.type, data: file.data } });
   parts.push({ text: prompt });
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL())}:generateContent`, {
-    method: 'POST', signal: AbortSignal.timeout(55000),
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST', signal: AbortSignal.timeout(file ? 45000 : 30000),
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env('GEMINI_API_KEY') },
     body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } }),
   });
-  if (!r.ok) throw new Error(`Gemini ${r.status} ${await why(r)}`);
+  if (!r.ok) throw await fail('Gemini', r);
   const j = await r.json();
   const text = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('');
   return parseJSON(text);

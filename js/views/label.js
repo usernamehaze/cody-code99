@@ -1,6 +1,7 @@
 import * as S from '../store.js';
 import { mount } from '../draw.js';
 import { esc, header, toast } from '../ui.js';
+import { say } from '../mascot.js';
 
 // "The aorta is the biggest artery" -> "This part is the biggest artery" (the tip must not give the name away)
 const hideName = (say, label) => { const t = say.replace(new RegExp(`(the\\s+)?${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'ig'), 'this part'); return t.charAt(0).toUpperCase() + t.slice(1); };
@@ -70,7 +71,7 @@ export function render(root, id) {
     const s = Math.round((Date.now() - t0) / 1000);
     $('.tip').innerHTML = `<b>All ${names.length} placed in ${s} seconds!</b><p>You earned ${points} points.</p><div class="row"><a class="btn primary small" href="#/quiz/${esc(rev.id)}">Quiz me next</a><button class="btn small again">Play again</button></div>`;
     $('.again').addEventListener('click', () => render(root, id));
-    toast(`+${points} points!`);
+    toast(`+${points} points!`); say('cheer', `All placed! +${points} points`);
   }
 
   // drag a name with a finger or the mouse; or tap a name, then tap its spot

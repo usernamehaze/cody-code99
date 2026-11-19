@@ -8,7 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { limited } from '../lib/limit.js';
 import { cors } from '../lib/cors.js';
-import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, checkDrawing, explainPrompt, checkExplain } from '../lib/tasks.js';
+import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, checkDrawing, explainPrompt, checkExplain, chatPrompt, checkChat } from '../lib/tasks.js';
 
 const env = (k) => (process.env[k] || '').trim();
 const GROQ_MODEL = () => env('GROQ_MODEL') || 'llama-3.3-70b-versatile';
@@ -96,7 +96,8 @@ export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method === 'GET') return res.status(200).json({ ok: true, providers: ORDER.filter((n) => env(PROVIDERS[n].key)) });
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST only' });
-  if (limited(req, 'ai', 60)) return res.status(429).json({ ok: false, error: 'Cody needs a short break. Try again in a few minutes.' });
+  // (300 an hour: a whole class can share one school address)
+  if (limited(req, 'ai', 300)) return res.status(429).json({ ok: false, error: 'Cody needs a short break. Try again in a few minutes.' });
   const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
   let file = null;
   if (body.file && body.file.data) {
@@ -113,6 +114,10 @@ export default async function handler(req, res) {
     } else if (body.task === 'draw') {
       if (!String(body.question || '').trim()) return res.status(400).json({ ok: false, error: 'Ask Cody what to draw.' });
       out = await ask(drawPrompt({ question: body.question, context: body.context }), checkDrawing, null);
+    } else if (body.task === 'chat') {
+      const msgs = Array.isArray(body.messages) ? body.messages : [];
+      if (!msgs.length || !String((msgs[msgs.length - 1] || {}).text || '').trim()) return res.status(400).json({ ok: false, error: 'Say something to Cody first.' });
+      out = await ask(chatPrompt({ messages: msgs, mode: body.mode, context: body.context, name: body.name }), checkChat, file);
     } else if (body.task === 'explain') {
       out = await ask(explainPrompt(body), checkExplain, null);
     } else return res.status(400).json({ ok: false, error: 'Unknown task' });

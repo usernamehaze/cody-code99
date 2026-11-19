@@ -3,6 +3,7 @@ import { ask } from '../ai.js';
 import { mount } from '../draw.js';
 import { pick } from './label.js';
 import { esc, header, ICON } from '../ui.js';
+import { say } from '../mascot.js';
 
 export function render(root, id) {
   if (!id) return pick(root, 'quiz', 'Quiz', 'Pick a reviewer. Cody explains every answer.');
@@ -32,7 +33,8 @@ export function render(root, id) {
   function choose(k) {
     if (answered) return; answered = true;
     const q = qs[i], right = k === q.a;
-    if (right) { score++; points += 10; }
+    if (right) { score++; points += 10; say('cheer', ['Tama! +10', 'Galing! +10', 'You got it! +10'][score % 3], 2600); }
+    else say('oops', 'Almost! Read the Why, then try the next one.', 3200);
     root.querySelectorAll('.choice').forEach((b) => {
       const n = +b.dataset.k; b.disabled = true;
       if (n === q.a) { b.classList.add('right'); b.insertAdjacentHTML('beforeend', `<span class="mark">${ICON.check}</span>`); }
@@ -56,6 +58,7 @@ export function render(root, id) {
   }
   function done() {
     const pct = Math.round((score / qs.length) * 100);
+    say(pct >= 70 ? 'cheer' : 'happy', pct >= 70 ? `${pct}%! I’m proud of you.` : 'Good effort! Let’s review the tricky ones.');
     S.quizDone(rev.id, pct); S.award(points, qs.length); S.markPlan('quiz-' + rev.id);
     const msg = pct >= 90 ? 'Galing! You know this topic well.' : pct >= 70 ? 'Nice work. A quick review and you will ace it.' : 'Keep going. Cody will put this topic in your plan.';
     root.innerHTML = `${header(`Quiz: ${rev.title}`, 'Finished')}

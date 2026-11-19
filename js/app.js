@@ -9,13 +9,15 @@ import * as cards from './views/cards.js';
 import * as label from './views/label.js';
 import * as plan from './views/plan.js';
 import * as importer from './views/import.js';
+import * as chat from './views/chat.js';
+import * as Mascot from './mascot.js';
 import * as Class from './classroom.js';
 
 const NAV = [
-  ['home', 'Home', '#/', ICON.home], ['reviewers', 'My reviewers', '#/reviewers', ICON.file], ['draw', 'Draw with Cody', '#/draw', ICON.pencil],
+  ['home', 'Home', '#/', ICON.home], ['chat', 'Ask Cody', '#/chat', ICON.chat], ['reviewers', 'My reviewers', '#/reviewers', ICON.file], ['draw', 'Draw with Cody', '#/draw', ICON.pencil],
   ['quiz', 'Quiz', '#/quiz', ICON.quiz], ['flashcards', 'Flashcards', '#/flashcards', ICON.cards], ['label', 'Label it! game', '#/label', ICON.game], ['plan', 'Study plan', '#/plan', ICON.plan],
 ];
-const TABS = [['home', 'Home', '#/'], ['reviewers', 'Reviewers', '#/reviewers'], ['draw', 'Draw', '#/draw'], ['label', 'Games', '#/label'], ['plan', 'Me', '#/plan']];
+const TABS = [['home', 'Home', '#/'], ['reviewers', 'Reviewers', '#/reviewers'], ['chat', 'Ask', '#/chat'], ['label', 'Games', '#/label'], ['plan', 'Me', '#/plan']];
 const SECTION = { reviewer: 'reviewers', import: 'reviewers' };
 
 const main = document.getElementById('main');
@@ -25,8 +27,10 @@ function shell() {
   document.getElementById('side').innerHTML = `
     <a class="brand" href="#/">${LOGO}<span>Cody</span></a>
     <nav aria-label="Main">${NAV.map(([k, t, h, ic]) => `<a href="${h}" data-k="${k}">${ic}<span>${t}</span></a>`).join('')}</nav>
+    <div class="buddy"><span class="cm-bubble" role="status"></span><button class="cm-face" data-size="84" aria-label="Cody, your study buddy. Tap for a tip."></button></div>
     <div class="streak-card"><b>🔥 <span class="n"></span></b><span class="muted msg"></span></div>`;
-  document.getElementById('top').innerHTML = `<a class="brand" href="#/">${LOGO}<span>Cody</span></a><a class="pill streak-pill" href="#/plan">🔥 <b class="n"></b></a>`;
+  document.getElementById('top').innerHTML = `<a class="brand" href="#/">${LOGO}<span>Cody</span></a><div class="top-right"><button class="cm-face" data-size="40" aria-label="Cody, your study buddy. Tap for a tip."></button><a class="pill streak-pill" href="#/plan">🔥 <b class="n"></b></a></div><span class="cm-bubble top-bubble" role="status"></span>`;
+  Mascot.mount([document.getElementById('side'), document.getElementById('top')]);
   document.getElementById('tabs').innerHTML = TABS.map(([k, t, h]) => `<a href="${h}" data-k="${k}">${t}</a>`).join('');
 }
 function streakCard() {
@@ -49,7 +53,7 @@ function route() {
   const views = {
     home: () => home.render(main), reviewers: () => reviewers.renderList(main, params), reviewer: () => reviewers.renderOne(main, id),
     draw: () => draw.render(main, id, params), quiz: () => quiz.render(main, id), flashcards: () => cards.render(main, id),
-    label: () => label.render(main, id), plan: () => plan.render(main), import: () => importer.render(main, params),
+    label: () => label.render(main, id), chat: () => chat.render(main, id, params), plan: () => plan.render(main), import: () => importer.render(main, params),
   };
   cleanup = (views[name || 'home'] || views.home)() || null;
   streakCard();

@@ -3,6 +3,7 @@ import { ask } from '../ai.js';
 import { readNotes } from '../notes.js';
 import { mount, clean } from '../draw.js';
 import { esc, header, ICON, toast } from '../ui.js';
+import { say } from '../mascot.js';
 
 // match a term ("Atria") to a part of the drawing ("Right atrium"), so Draw it and the quiz can point at it
 const stem = (w) => w.toLowerCase().replace(/[^a-z ]/g, '').replace(/(ia|ium|ae|es|s)$/, '');
@@ -54,7 +55,7 @@ function wireUpload(root) {
   let busy = false;
   const run = async (what) => {
     if (busy) return; busy = true; zone.classList.add('busy');
-    try { const rev = await makeReviewer(what, (m) => { status.textContent = m; }); S.award(15, 2); toast('Your reviewer is ready!'); location.hash = '#/reviewer/' + rev.id; }
+    try { const rev = await makeReviewer(what, (m) => { status.textContent = m; }); S.award(15, 2); toast('Your reviewer is ready!'); say('cheer', 'Your reviewer is ready! Try the quiz next.'); location.hash = '#/reviewer/' + rev.id; }
     catch (e) { status.textContent = e.message; }
     finally { busy = false; zone.classList.remove('busy'); }
   };
@@ -86,7 +87,7 @@ export function renderOne(root, id) {
   if (!r) { location.hash = '#/reviewers'; return; }
   root.innerHTML = `
     ${header(`Reviewer: ${r.title}`, r.seconds ? `Made by Cody from your notes in ${r.seconds} seconds` : 'Made by Cody from your notes', `
-      <a class="btn" href="#/flashcards/${esc(r.id)}">Make flashcards</a><a class="btn primary" href="#/quiz/${esc(r.id)}">Quiz me on this</a>`)}
+      <a class="btn" href="#/chat?about=${esc(r.id)}">${ICON.chat} Ask Cody about this</a><a class="btn" href="#/flashcards/${esc(r.id)}">Make flashcards</a><a class="btn primary" href="#/quiz/${esc(r.id)}">Quiz me on this</a>`)}
     <section class="grid-2 grow">
       <div class="col">
         ${r.drawing ? `<div class="card mobile-first"><div class="board sm" id="rev-draw"></div></div>` : ''}

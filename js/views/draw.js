@@ -4,8 +4,10 @@ import { mount, clean } from '../draw.js';
 import { sampleFor } from '../samples.js';
 import { linkParts } from './reviewers.js';
 import { esc, header, LOGO, ICON, speak, hush, toast } from '../ui.js';
+import { say } from '../mascot.js';
 
 let last = null; // the latest drawing asked for here, so Save to reviewer and Label it! can use it
+export const openDrawing = (spec, question) => { last = { spec, question }; location.hash = '#/draw'; }; // (from a chat answer)
 
 // a reviewer made from a drawing alone: each part is a term, a card and a quiz question
 export function reviewerFromDrawing(spec, question) {
@@ -72,7 +74,7 @@ export function render(root, id, params) {
       await new Promise((r) => { if (voice) speak(ctl.spec.parts[i].say, r); else setTimeout(r, 1400 + ctl.spec.parts[i].say.length * 22); });
       if (my !== gen || !playing) return;
     }
-    if (my === gen) { status('Done! Try Label it! next.'); playing = false; playBtn.textContent = 'Replay'; S.award(8, 2); if (rev) S.markPlan('draw-' + rev.id); }
+    if (my === gen) { say('cheer', 'Done drawing! Want to play Label it!?'); status('Done! Try Label it! next.'); playing = false; playBtn.textContent = 'Replay'; S.award(8, 2); if (rev) S.markPlan('draw-' + rev.id); }
   }
   function show(sp, question) {
     ctl = mount(root.querySelector('#board'), sp, { numbered: true, labels: 'steps', onStep: (i) => {
@@ -86,6 +88,7 @@ export function render(root, id, params) {
     last = { spec: ctl.spec, question };
     const start = Math.max(0, ctl.spec.parts.findIndex((p) => p.id === params.get('part')));
     playing = true; playBtn.textContent = 'Pause';
+    say('draw', `Let me draw ${ctl.spec.title.toLowerCase()} for you…`, 3500);
     run(start);
   }
 

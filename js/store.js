@@ -139,3 +139,19 @@ export function markPlan(itemId, on = true) {
   d[itemId] = on;
   if (on) award(10, 0); else save();
 }
+
+// ---------- chats with Cody (kept on this device; photos are not kept) ----------
+const MAX_CHATS = 30, MAX_MSGS = 80;
+export const chats = () => { const s = get(); if (!Array.isArray(s.chats)) s.chats = []; return s.chats; };
+export const chat = (id) => chats().find((c) => c.id === id);
+export function newChat({ mode = 'tutor', about = null } = {}) {
+  const c = { id: 'c-' + uid(), title: 'New chat', mode, about, msgs: [], at: Date.now() };
+  const list = chats(); list.unshift(c); list.splice(MAX_CHATS); save();
+  return c;
+}
+export function addMsg(c, m) {
+  c.msgs.push({ ...m, at: Date.now() }); c.msgs.splice(0, Math.max(0, c.msgs.length - MAX_MSGS)); c.at = Date.now();
+  const list = chats(); const i = list.indexOf(c); if (i > 0) { list.splice(i, 1); list.unshift(c); }
+  save();
+}
+export function removeChat(id) { const s = get(); s.chats = chats().filter((c) => c.id !== id); save(); }

@@ -8,12 +8,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { limited } from '../lib/limit.js';
 import { cors } from '../lib/cors.js';
-import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, checkDrawing, explainPrompt, checkExplain } from '../lib/tasks.js';
+import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, checkDrawing, explainPrompt, checkExplain, chatPrompt, checkChat } from '../lib/tasks.js';
 
 const env = (k) => (process.env[k] || '').trim();
 const GROQ_MODEL = () => env('GROQ_MODEL') || 'llama-3.3-70b-versatile';
 const GEMINI_MODEL = () => env('GEMINI_MODEL') || 'gemini-flash-latest';
 const CLAUDE_MODEL = () => env('CLAUDE_MODEL') || 'claude-opus-5-5';
+// a provider's own short reason ("model not found", "quota exceeded"), never the key
+const why = async (r) => { try { const j = await r.json(); const e = j.error || j; return String(e.message || e.status || '').slice(0, 160); } catch (e) { return ''; } };
 const MAX_FILE = 3.5 * 1024 * 1024; // Vercel takes request bodies up to 4.5 MB
 
 function parseJSON(text) {
@@ -28,7 +30,7 @@ async function groq(prompt) {
     headers: { 'content-type': 'application/json', authorization: `Bearer ${env('GROQ_API_KEY')}` },
     body: JSON.stringify({ model: GROQ_MODEL(), temperature: 0.4, max_tokens: 8000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] }),
   });
-  if (!r.ok) throw new Error(`Groq ${r.status}`);
+  if (!r.ok) throw new Error(`Groq ${r.status} ${await why(r)}`);
   const j = await r.json();
   return parseJSON(j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content);
 }
@@ -42,7 +44,7 @@ async function gemini(prompt, file) {
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env('GEMINI_API_KEY') },
     body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } }),
   });
-  if (!r.ok) throw new Error(`Gemini ${r.status}`);
+  if (!r.ok) throw new Error(`Gemini ${r.status} ${await why(r)}`);
   const j = await r.json();
   const text = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('');
   return parseJSON(text);
@@ -79,7 +81,8 @@ async function ask(prompt, check, file) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const out = check(await p.run(q, file));
-        if (out && out.ok !== false) return { data: out.spec || out, by: name };
+        if (out && out.ok !== false) return { data: out.spec || out, by: name, skipped: tried };
+        tried.push(`${name}: answer not usable${out && out.why ? ` (${out.why})` : ''}`);
         q = `${prompt}\n\nYour last answer could not be used${out && out.why ? `: ${out.why}` : ''}. Try again, following the shape exactly.`;
       } catch (e) { tried.push(`${name}: ${e.message}`); break; }
     }
@@ -93,7 +96,8 @@ export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method === 'GET') return res.status(200).json({ ok: true, providers: ORDER.filter((n) => env(PROVIDERS[n].key)) });
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST only' });
-  if (limited(req, 'ai', 60)) return res.status(429).json({ ok: false, error: 'Cody needs a short break. Try again in a few minutes.' });
+  // (300 an hour: a whole class can share one school address)
+  if (limited(req, 'ai', 300)) return res.status(429).json({ ok: false, error: 'Cody needs a short break. Try again in a few minutes.' });
   const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
   let file = null;
   if (body.file && body.file.data) {
@@ -110,6 +114,10 @@ export default async function handler(req, res) {
     } else if (body.task === 'draw') {
       if (!String(body.question || '').trim()) return res.status(400).json({ ok: false, error: 'Ask Cody what to draw.' });
       out = await ask(drawPrompt({ question: body.question, context: body.context }), checkDrawing, null);
+    } else if (body.task === 'chat') {
+      const msgs = Array.isArray(body.messages) ? body.messages : [];
+      if (!msgs.length || !String((msgs[msgs.length - 1] || {}).text || '').trim()) return res.status(400).json({ ok: false, error: 'Say something to Cody first.' });
+      out = await ask(chatPrompt({ messages: msgs, mode: body.mode, context: body.context, name: body.name }), checkChat, file);
     } else if (body.task === 'explain') {
       out = await ask(explainPrompt(body), checkExplain, null);
     } else return res.status(400).json({ ok: false, error: 'Unknown task' });

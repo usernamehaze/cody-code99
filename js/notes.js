@@ -15,7 +15,7 @@ function loadPdfJs() {
 const toBase64 = (file) => new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = () => fail(r.error); r.readAsDataURL(file); });
 
 // a photo from a phone is big: shrink it to 1600px on its long side before sending
-async function shrinkImage(file) {
+export async function shrinkImage(file) {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise((ok, fail) => { const i = new Image(); i.onload = () => ok(i); i.onerror = fail; i.src = url; });

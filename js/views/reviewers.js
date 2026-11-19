@@ -6,6 +6,7 @@ import { esc, header, ICON, toast } from '../ui.js';
 import { say } from '../mascot.js';
 import { md } from '../md.js';
 import { SAMPLES } from '../samples.js';
+import { saveGuidePdf } from '../pdf.js';
 
 // match a term ("Atria") to a part of the drawing ("Right atrium"), so Draw it and the quiz can point at it
 const stem = (w) => w.toLowerCase().replace(/[^a-z ]/g, '').replace(/(ia|ium|ae|es|s)$/, '');
@@ -146,13 +147,13 @@ export function renderOne(root, id) {
     root.querySelector('.terms-card').hidden = t.dataset.v !== 'terms';
   }));
   const pdf = root.querySelector('.save-pdf');
-  if (pdf) pdf.addEventListener('click', () => {
-    // the browser's print dialog, with only the study guide on white paper: choose "Save as PDF" there
-    document.documentElement.classList.add('print-guide');
-    const done = () => { document.documentElement.classList.remove('print-guide'); window.removeEventListener('afterprint', done); };
-    window.addEventListener('afterprint', done);
-    window.print();
-    setTimeout(done, 1500);
+  if (pdf) pdf.addEventListener('click', async () => {
+    // a real PDF file, made on the device (iPhones block websites from opening the print dialog)
+    const label = pdf.innerHTML; pdf.disabled = true; pdf.textContent = 'Making PDF…';
+    const name = `${(r.title || 'Reviewer').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'Reviewer'}_Reviewer.pdf`;
+    try { await saveGuidePdf(r.guide || guideFrom(r), name); toast('PDF saved'); }
+    catch (e) { toast(e.message || 'Could not make the PDF.'); }
+    finally { pdf.disabled = false; pdf.innerHTML = label; }
   });
   const copy = root.querySelector('.copy-guide');
   if (copy) copy.addEventListener('click', () => navigator.clipboard.writeText(r.guide || guideFrom(r)).then(() => toast('Study guide copied'), () => toast('Could not copy')));

@@ -17,7 +17,7 @@ const NAV = [
   ['home', 'Home', '#/', ICON.home], ['chat', 'Ask Cody', '#/chat', ICON.chat], ['reviewers', 'My reviewers', '#/reviewers', ICON.file], ['draw', 'Draw with Cody', '#/draw', ICON.pencil],
   ['quiz', 'Quiz', '#/quiz', ICON.quiz], ['flashcards', 'Flashcards', '#/flashcards', ICON.cards], ['label', 'Label it! game', '#/label', ICON.game], ['plan', 'Study plan', '#/plan', ICON.plan],
 ];
-const TABS = [['home', 'Home', '#/'], ['reviewers', 'Reviewers', '#/reviewers'], ['chat', 'Ask', '#/chat'], ['label', 'Games', '#/label'], ['plan', 'Me', '#/plan']];
+const TABS = [['home', 'Home', '#/', ICON.home], ['reviewers', 'Reviewers', '#/reviewers', ICON.file], ['chat', 'Ask', '#/chat', ICON.chat], ['label', 'Games', '#/label', ICON.game], ['plan', 'Me', '#/plan', ICON.me]];
 const SECTION = { reviewer: 'reviewers', import: 'reviewers' };
 
 const main = document.getElementById('main');
@@ -31,7 +31,8 @@ function shell() {
     <div class="streak-card"><b>🔥 <span class="n"></span></b><span class="muted msg"></span></div>`;
   document.getElementById('top').innerHTML = `<a class="brand" href="#/">${LOGO}<span>Cody</span></a><div class="top-right"><button class="cm-face" data-size="40" aria-label="Cody, your study buddy. Tap for a tip."></button><a class="pill streak-pill" href="#/plan">🔥 <b class="n"></b></a></div><span class="cm-bubble top-bubble" role="status"></span>`;
   Mascot.mount([document.getElementById('side'), document.getElementById('top')]);
-  document.getElementById('tabs').innerHTML = TABS.map(([k, t, h]) => `<a href="${h}" data-k="${k}">${t}</a>`).join('');
+  // a floating pill (like Cassie's): icons only, and the open tab grows into a teal pill with its name
+  document.getElementById('tabs').innerHTML = TABS.map(([k, t, h, ic]) => `<a href="${h}" data-k="${k}" aria-label="${t}">${ic}<span>${t}</span></a>`).join('');
 }
 function streakCard() {
   const n = S.streak();

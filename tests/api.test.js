@@ -103,3 +103,22 @@ test('checkGuide wants a real reviewer with headings', async () => {
   const good = '# REVIEWER: Topic\n\n## 1. The big picture\n' + 'Text. '.repeat(80);
   assert.ok(checkGuide({ markdown: good }).markdown.startsWith('# REVIEWER'));
 });
+
+test('study guides ask Gemini first; chat asks Groq first', async () => {
+  process.env.GROQ_API_KEY = 'test-groq'; process.env.GEMINI_API_KEY = 'test-gemini';
+  const realFetch = globalThis.fetch; const seen = [];
+  const guide = '# REVIEWER: T\n\n## 1. The big picture\n' + 'Words. '.repeat(80);
+  globalThis.fetch = async (url) => {
+    const g = String(url).includes('googleapis'); seen.push(g ? 'gemini' : 'groq');
+    const data = JSON.stringify({ markdown: guide, reply: 'Hi!', draw: '', title: 'Hi' });
+    return new Response(JSON.stringify(g ? { candidates: [{ content: { parts: [{ text: data }] } }] } : { choices: [{ message: { content: data } }] }), { status: 200 });
+  };
+  try {
+    const { default: handler } = await import('../api/ai.js');
+    const g = await call(handler, { task: 'guide', notes: 'Some notes about a topic.' });
+    assert.equal(g.body.by, 'gemini');
+    const c = await call(handler, { task: 'chat', messages: [{ role: 'me', text: 'hi' }] });
+    assert.equal(c.body.by, 'groq');
+    assert.deepEqual(seen, ['gemini', 'groq']);
+  } finally { globalThis.fetch = realFetch; }
+});

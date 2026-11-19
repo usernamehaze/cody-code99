@@ -183,6 +183,7 @@ dashboard. Its leaderboard shows *sample* classmates until you join a class (**S
 - [Inter](https://rsms.me/inter/) font by Rasmus Andersson, via Google Fonts (SIL Open Font License 1.1)
 - [pdf.js](https://mozilla.github.io/pdf.js/) by Mozilla, via cdnjs (Apache License 2.0), reads PDF text in the browser
 - [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (MIT)
+- [jsPDF](https://github.com/parallax/jsPDF) and [jsPDF-AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable) (MIT), shipped in `js/vendor/`, make study guides into PDF files
 - AI providers: [Groq](https://groq.com), [Google Gemini](https://ai.google.dev), [Anthropic Claude](https://www.anthropic.com)
 - The logo, icons, the four sample drawings and every screen are original work by the team.
 - Cody shares its drawing-spec idea, Leitner flashcard schedule and provider fallback with

@@ -161,6 +161,77 @@ export const SAMPLES = [
     ],
     drawing: heartDrawing,
     game: ['ra', 'la', 'rv', 'lv', 'sep', 'ao'],
+    guide: `# REVIEWER: The Human Heart
+*(Based on Biology Chapter 5: The Circulatory System)*
+
+---
+
+## 1. Learning outcomes
+By the end of this topic, you should be able to:
+1. Name the four chambers of the heart and what each one does.
+2. Trace the path of blood through the heart, lungs and body.
+3. Explain how valves and the septum keep blood moving the right way.
+
+---
+
+## 2. The big picture
+The heart is a **muscular pump** about the size of your fist. It beats around **60 to 100 times a minute** at rest, pushing blood to the lungs to pick up oxygen and then out to the whole body. It is really **two pumps side by side**: the right side handles oxygen-poor blood, the left side handles oxygen-rich blood.
+
+---
+
+## 3. The four chambers
+| Chamber | Where | What it does |
+|---|---|---|
+| **Right atrium** | Top right | Receives oxygen-poor blood from the body through the **vena cava** |
+| **Right ventricle** | Bottom right | Pumps blood to the lungs through the **pulmonary artery** |
+| **Left atrium** | Top left | Receives oxygen-rich blood from the lungs |
+| **Left ventricle** | Bottom left | Pumps blood to the whole body through the **aorta** |
+
+- The **atria** (top) *receive* blood. The **ventricles** (bottom) *pump it out*.
+- "Right" and "left" mean the heart's own right and left, so on a diagram facing you they look swapped.
+
+> The left ventricle has the thickest wall, because it pumps blood the farthest: to the whole body.
+
+---
+
+## 4. The path of blood
+1. Oxygen-poor blood from the body enters the **right atrium** through the **vena cava**.
+2. It passes into the **right ventricle**.
+3. The right ventricle pumps it through the **pulmonary artery** to the **lungs**, where it picks up oxygen.
+4. Oxygen-rich blood returns to the **left atrium**.
+5. It passes into the **left ventricle**.
+6. The left ventricle pumps it through the **aorta** to the rest of the body.
+
+**Watch out:** the pulmonary artery carries *oxygen-poor* blood. Arteries carry blood *away* from the heart, not always oxygen-rich blood.
+
+---
+
+## 5. Valves and the septum
+- **Valves** are flaps between the chambers and at the exits. They open to let blood through, then close so it cannot flow back. The "lub-dub" of a heartbeat is the sound of valves closing.
+- The **septum** is the wall down the middle. It keeps oxygen-rich and oxygen-poor blood from mixing.
+- The pointed bottom tip of the heart is the **apex**.
+
+---
+
+## Key terms to remember
+- **Atria**: the two top chambers that receive blood.
+- **Ventricles**: the two bottom chambers that pump blood out.
+- **Aorta**: the biggest artery; carries oxygen-rich blood to the body.
+- **Vena cava**: the large vein that returns blood from the body.
+- **Pulmonary artery**: carries oxygen-poor blood to the lungs.
+- **Valves**: flaps that keep blood flowing one way.
+- **Septum**: the wall between the left and right sides.
+
+## Review questions
+1. Which chamber pumps blood to the whole body, and why is its wall the thickest?
+2. Trace a drop of blood from the vena cava back out through the aorta.
+3. What would happen if a valve could not close properly?
+4. Why does the heart need two separate sides?
+5. Label the four chambers on Cody's drawing.
+
+---
+
+*End of reviewer: The Human Heart*`,
   },
   {
     id: 'sample-water', subject: 'Science', title: 'The water cycle', source: { name: 'Sci_Unit2_Water.pdf', pages: 4 }, seconds: 9,

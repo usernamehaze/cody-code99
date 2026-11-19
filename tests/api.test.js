@@ -47,7 +47,8 @@ test('Groq first; when Groq fails, Gemini answers', async () => {
   try {
     const { default: handler } = await import('../api/ai.js');
     const r = await call(handler, { task: 'reviewer', notes: 'The heart has four chambers. The atria are on top.' });
-    assert.equal(r.code, 200); assert.equal(r.body.by, 'gemini'); assert.deepEqual(seen, ['groq', 'gemini']);
+    assert.equal(r.code, 200); assert.equal(r.body.by, 'gemini'); assert.deepEqual(seen, ['groq', 'groq', 'groq', 'gemini'], 'every Groq model is tried, then Gemini');
+    assert.equal(r.body.skipped.length, 1); assert.match(r.body.skipped[0], /gpt-oss-120b: Groq 429/);
     assert.equal(r.body.data.title, 'The heart');
   } finally { globalThis.fetch = realFetch; }
 });
@@ -76,4 +77,29 @@ test('the Android app (https://localhost) may call the API; other sites get no C
   assert.equal(a.res.statusCode, 204); assert.equal(a.h['access-control-allow-origin'], 'https://localhost');
   const b = mk('https://evil.example'); await handler(b.req, b.res);
   assert.equal(b.h['access-control-allow-origin'], undefined);
+});
+
+test('a retired Groq model is skipped and the next one answers', async () => {
+  process.env.GROQ_API_KEY = 'test-groq'; delete process.env.GEMINI_API_KEY; delete process.env.GROQ_MODEL;
+  const realFetch = globalThis.fetch; const models = [];
+  globalThis.fetch = async (url, init) => {
+    const m = JSON.parse(init.body).model; models.push(m);
+    if (m === 'openai/gpt-oss-120b') return new Response(JSON.stringify({ error: { message: 'The model `openai/gpt-oss-120b` has been decommissioned' } }), { status: 400 });
+    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ text: 'More.' }) } }] }), { status: 200 });
+  };
+  try {
+    const { default: handler } = await import('../api/ai.js');
+    const a = await call(handler, { task: 'explain', question: 'q', answer: 'a', why: 'w', topic: 't' });
+    assert.equal(a.code, 200); assert.equal(a.body.by, 'groq'); assert.deepEqual(models, ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile']);
+    models.length = 0;
+    await call(handler, { task: 'explain', question: 'q', answer: 'a', why: 'w', topic: 't' });
+    assert.deepEqual(models, ['llama-3.3-70b-versatile'], 'the retired name is not tried again');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('checkGuide wants a real reviewer with headings', async () => {
+  const { checkGuide } = await import('../lib/tasks.js');
+  assert.equal(checkGuide({ markdown: 'too short' }).ok, false);
+  const good = '# REVIEWER: Topic\n\n## 1. The big picture\n' + 'Text. '.repeat(80);
+  assert.ok(checkGuide({ markdown: good }).markdown.startsWith('# REVIEWER'));
 });

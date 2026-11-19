@@ -37,9 +37,9 @@ function parseJSON(text) {
   return JSON.parse(s.slice(a, b + 1));
 }
 
-const groq = (prompt) => eachModel(GROQ_MODELS(), async (model) => {
+const groq = (prompt, file, opts = {}) => eachModel(GROQ_MODELS(), async (model) => {
   const body = { model, temperature: 0.4, max_tokens: 12000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] };
-  if (/gpt-oss/.test(model)) body.reasoning_effort = 'low'; // (quick answers; these models think first)
+  if (/gpt-oss/.test(model)) body.reasoning_effort = opts.effort || 'low'; // (quick answers; a study guide thinks harder)
   const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST', signal: AbortSignal.timeout(30000),
     headers: { 'content-type': 'application/json', authorization: `Bearer ${env('GROQ_API_KEY')}` },
@@ -88,7 +88,7 @@ const PROVIDERS = { groq: { key: 'GROQ_API_KEY', run: groq, files: false }, gemi
 const ORDER = ['groq', 'gemini', 'claude'];
 
 // ask each brain in turn; check() turns its JSON into clean data or says what to fix (one retry with the reason)
-async function ask(prompt, check, file) {
+async function ask(prompt, check, file, opts = {}) {
   const tried = [];
   for (const name of ORDER) {
     const p = PROVIDERS[name];
@@ -96,7 +96,7 @@ async function ask(prompt, check, file) {
     let q = prompt;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const out = check(await p.run(q, file));
+        const out = check(await p.run(q, file, opts));
         if (out && out.ok !== false) return { data: out.spec || out, by: name, skipped: tried };
         tried.push(`${name}: answer not usable${out && out.why ? ` (${out.why})` : ''}`);
         q = `${prompt}\n\nYour last answer could not be used${out && out.why ? `: ${out.why}` : ''}. Try again, following the shape exactly.`;
@@ -126,10 +126,10 @@ export default async function handler(req, res) {
     let out;
     if (body.task === 'reviewer') {
       if (!file && !String(body.notes || '').trim()) return res.status(400).json({ ok: false, error: 'Add some notes first.' });
-      out = await ask(reviewerPrompt({ notes: body.notes, fileName: body.fileName }), checkReviewer, file);
+      out = await ask(reviewerPrompt({ notes: body.notes, fileName: body.fileName }), checkReviewer, file, { effort: 'medium' });
     } else if (body.task === 'guide') {
       if (!file && !String(body.notes || '').trim()) return res.status(400).json({ ok: false, error: 'Add some notes first.' });
-      out = await ask(guidePrompt({ notes: body.notes, fileName: body.fileName }), checkGuide, file);
+      out = await ask(guidePrompt({ notes: body.notes, fileName: body.fileName }), checkGuide, file, { effort: 'medium' });
     } else if (body.task === 'draw') {
       if (!String(body.question || '').trim()) return res.status(400).json({ ok: false, error: 'Ask Cody what to draw.' });
       out = await ask(drawPrompt({ question: body.question, context: body.context }), checkDrawing, null);

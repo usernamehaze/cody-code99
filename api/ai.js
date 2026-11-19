@@ -14,6 +14,8 @@ const env = (k) => (process.env[k] || '').trim();
 const GROQ_MODEL = () => env('GROQ_MODEL') || 'llama-3.3-70b-versatile';
 const GEMINI_MODEL = () => env('GEMINI_MODEL') || 'gemini-flash-latest';
 const CLAUDE_MODEL = () => env('CLAUDE_MODEL') || 'claude-opus-5-5';
+// a provider's own short reason ("model not found", "quota exceeded"), never the key
+const why = async (r) => { try { const j = await r.json(); const e = j.error || j; return String(e.message || e.status || '').slice(0, 160); } catch (e) { return ''; } };
 const MAX_FILE = 3.5 * 1024 * 1024; // Vercel takes request bodies up to 4.5 MB
 
 function parseJSON(text) {
@@ -28,7 +30,7 @@ async function groq(prompt) {
     headers: { 'content-type': 'application/json', authorization: `Bearer ${env('GROQ_API_KEY')}` },
     body: JSON.stringify({ model: GROQ_MODEL(), temperature: 0.4, max_tokens: 8000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] }),
   });
-  if (!r.ok) throw new Error(`Groq ${r.status}`);
+  if (!r.ok) throw new Error(`Groq ${r.status} ${await why(r)}`);
   const j = await r.json();
   return parseJSON(j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content);
 }
@@ -42,7 +44,7 @@ async function gemini(prompt, file) {
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env('GEMINI_API_KEY') },
     body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } }),
   });
-  if (!r.ok) throw new Error(`Gemini ${r.status}`);
+  if (!r.ok) throw new Error(`Gemini ${r.status} ${await why(r)}`);
   const j = await r.json();
   const text = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('');
   return parseJSON(text);
@@ -79,7 +81,8 @@ async function ask(prompt, check, file) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const out = check(await p.run(q, file));
-        if (out && out.ok !== false) return { data: out.spec || out, by: name };
+        if (out && out.ok !== false) return { data: out.spec || out, by: name, skipped: tried };
+        tried.push(`${name}: answer not usable${out && out.why ? ` (${out.why})` : ''}`);
         q = `${prompt}\n\nYour last answer could not be used${out && out.why ? `: ${out.why}` : ''}. Try again, following the shape exactly.`;
       } catch (e) { tried.push(`${name}: ${e.message}`); break; }
     }

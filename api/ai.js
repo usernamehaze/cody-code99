@@ -3,7 +3,8 @@
      GROQ_API_KEY       Groq, the main brain for text (free tier, fast)
      GEMINI_API_KEY     Google Gemini: reads PDFs and photos, and backs up Groq
      ANTHROPIC_API_KEY  Claude: optional, the last backup (and the best at drawings)
-   Text tasks try Groq, then Gemini, then Claude. Tasks with a file (a PDF or a photo) try Gemini, then Claude.
+   Text tasks try Groq, then Gemini, then Claude; study guides try Gemini first. Tasks with a file (a PDF or a photo)
+   try Gemini, then Claude.
    (The same order Cassie's server uses.) Optional: GROQ_MODEL, GEMINI_MODEL, CLAUDE_MODEL (tried first). */
 import Anthropic from '@anthropic-ai/sdk';
 import { limited } from '../lib/limit.js';
@@ -90,7 +91,7 @@ const ORDER = ['groq', 'gemini', 'claude'];
 // ask each brain in turn; check() turns its JSON into clean data or says what to fix (one retry with the reason)
 async function ask(prompt, check, file, opts = {}) {
   const tried = [];
-  for (const name of ORDER) {
+  for (const name of opts.order || ORDER) {
     const p = PROVIDERS[name];
     if (!env(p.key) || (file && !p.files)) continue;
     let q = prompt;
@@ -129,7 +130,10 @@ export default async function handler(req, res) {
       out = await ask(reviewerPrompt({ notes: body.notes, fileName: body.fileName }), checkReviewer, file, { effort: 'medium' });
     } else if (body.task === 'guide') {
       if (!file && !String(body.notes || '').trim()) return res.status(400).json({ ok: false, error: 'Add some notes first.' });
-      out = await ask(guidePrompt({ notes: body.notes, fileName: body.fileName }), checkGuide, file, { effort: 'medium' });
+      // a study guide is long and must be exact, and nobody waits for it (it is written in the background):
+      // Gemini first (it read wrapped tables more accurately in testing), which also leaves Groq's per-minute
+      // allowance on its free plan for chat and quizzes
+      out = await ask(guidePrompt({ notes: body.notes, fileName: body.fileName }), checkGuide, file, { effort: 'medium', order: ['gemini', 'groq', 'claude'] });
     } else if (body.task === 'draw') {
       if (!String(body.question || '').trim()) return res.status(400).json({ ok: false, error: 'Ask Cody what to draw.' });
       out = await ask(drawPrompt({ question: body.question, context: body.context }), checkDrawing, null);

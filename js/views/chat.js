@@ -14,7 +14,7 @@ import { shrinkImage } from '../notes.js';
 import { mascot, say } from '../mascot.js';
 import { openDrawing } from './draw.js';
 import { makeReviewer } from './reviewers.js';
-import { esc, ICON, speak, hush, toast } from '../ui.js';
+import { esc, ICON, speak, hush, toast, askSure, busy, plural } from '../ui.js';
 import '../care.js';
 
 const Care = window.CodyCare;
@@ -69,7 +69,7 @@ export function render(root, id, params) {
         </form>
       </div>
       <aside class="card panel chats">
-        <a class="btn primary" href="#/chat?new=1">${ICON.plus} New chat</a>
+        <a class="btn" href="#/chat?new=1">${ICON.plus} New chat</a>
         <h2 class="eyebrow">Your chats</h2>
         <ul class="chat-list">${S.chats().map((x) => `<li class="${x.id === c.id ? 'on' : ''}"><a href="#/chat/${esc(x.id)}"><b>${esc(x.title)}</b><span class="muted">${x.msgs.length} message${x.msgs.length === 1 ? '' : 's'}</span></a><button class="del" data-id="${esc(x.id)}" aria-label="Delete chat ${esc(x.title)}">${ICON.trash}</button></li>`).join('')}</ul>
         <p class="muted small">Chats stay on this device.</p>
@@ -96,11 +96,11 @@ export function render(root, id, params) {
     tools.querySelector('.read').addEventListener('click', () => speak(m.text.replace(/[*#`>_-]/g, ' ')));
     tools.querySelector('.copy').addEventListener('click', () => navigator.clipboard.writeText(m.text).then(() => toast('Copied'), () => {}));
     const make = tools.querySelector('.make');
-    if (make) make.addEventListener('click', async () => {
-      make.disabled = true; make.querySelector('span').textContent = 'Making…'; say('think', 'Turning this into a reviewer…', 0);
+    if (make) make.addEventListener('click', () => busy(make, 'Making the reviewer…', async () => {
+      say('think', 'Turning this into a reviewer…', 0);
       try { const r = await makeReviewer({ text: m.text, name: `Chat: ${c.title}` }, () => {}); S.award(15, 2); say('cheer', 'Your reviewer is ready!'); location.hash = '#/reviewer/' + r.id; }
-      catch (e) { make.disabled = false; make.querySelector('span').textContent = 'Make a reviewer'; toast(e.message); }
-    });
+      catch (e) { toast(e.message); }
+    }));
     return el;
   }
   // a drawing inside an answer: the samples are instant; anything else Cody draws with the AI (kept once drawn)
@@ -173,7 +173,7 @@ export function render(root, id, params) {
       else S.addMsg(c, { role: 'cody', text: data.reply, draw: c.mode === 'talk' ? '' : data.draw });
       if (c.title === 'New chat' && data.title) { c.title = data.title; S.save(); root.querySelector('.chat-title h1').textContent = c.title; const li = root.querySelector('.chat-list li.on b'); if (li) li.textContent = c.title; }
       S.award(2, 1);
-      const count = root.querySelector('.chat-list li.on .muted'); if (count) count.textContent = `${c.msgs.length} messages`;
+      const count = root.querySelector('.chat-list li.on .muted'); if (count) count.textContent = plural(c.msgs.length, 'message');
       setFace(data.draw ? 'draw' : 'happy');
     } catch (e) {
       S.addMsg(c, { role: 'cody', text: `Sorry, I could not answer that one. ${e.message}` });
@@ -220,8 +220,9 @@ export function render(root, id, params) {
     box.placeholder = k === 'talk' ? 'Tell me what’s going on…' : k === 'quiz' ? 'Name a topic, or answer A, B, C or D…' : k === 'hint' ? 'What are you stuck on?' : 'Ask Cody anything…';
   }
   root.querySelectorAll('.mode').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.m)));
-  root.querySelectorAll('.chat-list .del').forEach((b) => b.addEventListener('click', () => {
-    if (!confirm('Delete this chat?')) return;
+  root.querySelectorAll('.chat-list .del').forEach((b) => b.addEventListener('click', async () => {
+    const x = S.chat(b.dataset.id); if (!x) return;
+    if (!(await askSure({ title: `Delete “${x.title}”?`, body: `Its ${plural(x.msgs.length, 'message')} will be gone from this device. This can't be undone.`, action: 'Delete chat' }))) return;
     S.removeChat(b.dataset.id);
     location.hash = b.dataset.id === c.id ? '#/chat' : location.hash;
     if (b.dataset.id !== c.id) b.closest('li').remove();

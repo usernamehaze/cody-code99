@@ -1,6 +1,7 @@
 import * as S from '../store.js';
 import { esc, header, toast, askSure, plural, busy as spinBusy } from '../ui.js';
 import * as Class from '../classroom.js';
+import { emptyState } from '../mascot.js';
 
 const DAY = 864e5;
 const nice = (t) => new Date(t).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -28,7 +29,9 @@ export function render(root) {
     ${header('Study plan', S.daysToExam() == null ? 'Set your exam date and Cody plans every day until then.' : `${S.daysToExam()} day${S.daysToExam() === 1 ? '' : 's'} to your ${s.exam.subject || ''} exam`)}
     <section class="grid-2 grow">
       <div class="card"><h2 class="eyebrow">Day by day</h2>
-        ${plan.length ? `<ol class="days">${plan.map((p) => `<li class="${p.today ? 'today' : ''}"><b>${p.today ? 'Today' : nice(p.t)}</b><ul>${p.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></li>`).join('')}</ol>` : '<p class="muted">Add your exam date on the right.</p>'}
+        ${plan.length ? `<ol class="days">${plan.map((p) => `<li class="${p.today ? 'today' : ''}"><b>${p.today ? 'Today' : nice(p.t)}</b><ul>${p.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></li>`).join('')}</ol>`
+          : !s.reviewers.length ? emptyState({ mood: 'wave', title: 'Nothing to plan yet', text: 'Upload your notes first, then add your exam date. Cody plans every day until the exam.', actions: [{ label: 'Upload my notes', href: '#/reviewers?upload=1' }] })
+          : emptyState({ mood: 'think', title: 'When is your exam?', text: 'Add the date on the right and Cody plans every day until then.' })}
       </div>
       <div class="col">
         <form class="card settings"><h2 class="eyebrow">You and your exam</h2>
@@ -40,7 +43,7 @@ export function render(root) {
         <div class="card class-card"><h2 class="eyebrow">Your class</h2>${classCard(s)}</div>
         <div class="card"><h2 class="eyebrow">Your data</h2>
           <p class="muted">Everything Cody keeps stays on this device. If you join a class, only your name and points are shared with it.</p>
-          <div class="row"><button class="btn small fresh">Start fresh</button><button class="btn small demo">Load the demo again</button></div>
+          <div class="row"><button class="btn small fresh">Start fresh</button></div>
         </div>
       </div>
     </section>`;
@@ -48,10 +51,7 @@ export function render(root) {
   const f = root.querySelector('.settings');
   f.addEventListener('submit', (e) => { e.preventDefault(); s.name = f.name.value.trim(); s.exam = { subject: f.subject.value.trim(), date: f.date.value }; S.save(); toast('Saved. Cody updated your plan.'); render(root); });
   root.querySelector('.fresh').addEventListener('click', async () => {
-    if (await askSure({ title: 'Start fresh?', body: "Your points, streak, chats and the reviewers you made will be cleared from this device. This can't be undone.", action: 'Clear and start fresh' })) { S.reset(false); location.hash = '#/plan'; render(root); }
-  });
-  root.querySelector('.demo').addEventListener('click', async () => {
-    if (await askSure({ title: 'Load the demo?', body: "The demo student, Juan, replaces everything on this device now, including your own reviewers and chats. This can't be undone.", action: 'Replace with the demo' })) { S.reset(true); location.hash = '#/'; }
+    if (await askSure({ title: 'Start fresh?', body: "Your points, streak, chats and the reviewers you made will be cleared from this device. This can't be undone.", action: 'Clear and start fresh' })) { S.reset(); location.hash = '#/plan'; render(root); }
   });
 }
 

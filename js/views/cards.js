@@ -1,9 +1,14 @@
 import * as S from '../store.js';
 import { mount } from '../draw.js';
 import { esc, header } from '../ui.js';
+import { emptyState } from '../mascot.js';
 
 export function render(root, deckId) {
   const decks = S.decks();
+  if (!decks.length) {
+    root.innerHTML = `${header('Flashcards', 'Cards you miss come back sooner, so they stick.')}<section class="card">${emptyState({ mood: 'happy', title: 'No flashcards yet', text: 'Every reviewer Cody makes from your notes comes with its own deck of cards.', actions: [{ label: 'Upload my notes', href: '#/reviewers?upload=1' }] })}</section>`;
+    return undefined;
+  }
   if (!deckId) deckId = (decks.find((d) => d.due) || decks[0] || {}).id;
   const rev = deckId && S.reviewer(deckId);
   let queue = deckId ? S.dueCards(deckId) : [];

@@ -98,3 +98,9 @@ export function mount(els) {
 // for screens: window-level, so they don't need to import this file
 export const say = (mood, text, ms) => window.dispatchEvent(new CustomEvent('cody:react', { detail: { mood, say: text, ms } }));
 export const bubbleHtml = (text) => `<span class="cm-bubble">${esc(text || '')}</span>`;
+
+/* An empty state: Cody, a short title, one line of what to do, and the action(s) that fill it.
+   actions: [{ label, href, primary }] — the first filled, the rest outlined (one main action per screen). */
+export function emptyState({ mood = 'wave', title, text = '', actions = [], size = 120 }) {
+  return `<div class="empty-cm">${mascot(mood, size)}<h2>${esc(title)}</h2>${text ? `<p>${esc(text)}</p>` : ''}${actions.length ? `<div class="row center">${actions.map((a, i) => `<a class="btn ${a.primary === false || i ? '' : 'primary'}" href="${esc(a.href)}">${esc(a.label)}</a>`).join('')}</div>` : ''}</div>`;
+}

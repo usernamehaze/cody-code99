@@ -1,10 +1,9 @@
 /* Everything Cody remembers, kept on this device (localStorage).
-   reviewers: the student's reviewers (the built-in samples plus ones Cody made from their notes)
+   reviewers: the reviewers Cody made from the student's notes (none at first)
    cards:     flashcards with a Leitner box and a due time (spaced repetition, from Cassie's cards.js)
    days:      points and minutes per day (the streak, the week chart)
    quiz:      best score per reviewer, to find the weak topic
    plan:      which of today's plan items are done */
-import { SAMPLES } from './samples.js';
 
 const KEY = 'cody.v1';
 const DAY = 864e5, MIN = 6e4;
@@ -17,25 +16,22 @@ function cardsFrom(rev, now = Date.now()) {
   return (rev.cards || []).map((c) => ({ id: uid(), deck: rev.id, front: c.front, back: c.back, part: c.part || null, box: 0, due: now }));
 }
 
-// first open: the sample reviewers and a demo week, so the dashboard isn't empty on Demo Day
-function fresh(demo = true) {
-  const now = Date.now();
-  const s = {
-    name: demo ? 'Juan' : '', exam: { subject: 'Biology', date: dayKey(now + 9 * DAY) },
-    reviewers: SAMPLES.map((r) => structuredClone(r)), cards: [], days: {}, quiz: {}, plan: {}, points: 0, created: now,
-    classmates: [{ name: 'Maria', points: 1420 }, { name: 'Paolo', points: 1105 }, { name: 'Bea', points: 980 }],
-  };
-  SAMPLES.forEach((r) => s.cards.push(...cardsFrom(r, now)));
-  if (demo) {
-    const mins = [22, 34, 28, 41, 31, 8, 0];
-    for (let k = 6; k >= 1; k--) s.days[dayKey(now - k * DAY)] = { pts: 150 + k * 17, min: mins[(7 - k) % 7] || 12 };
-    s.points = 1240 - 0;
-    // some cards already learned, so "cards learned" reads like a real week
-    s.cards.forEach((c, i) => { if (i % 3 === 1) { c.box = 4; c.due = now + 5 * DAY; } });
-    s.quiz['sample-water'] = { best: 90, last: 90 };
-    s.quiz['sample-heart'] = { best: 80, last: 80 };
-    s.quiz['sample-photo'] = { best: 55, last: 55 };
-  }
+// first open: nothing at all. Every number Cody shows is the student's own (no made-up scores or streaks).
+const VERSION = 2;
+function fresh() {
+  return { version: VERSION, name: '', exam: { subject: '', date: '' }, reviewers: [], cards: [], days: {}, quiz: {}, plan: {}, points: 0, created: Date.now() };
+}
+// devices that opened an older Cody have the old demo (Juan, a made-up week, sample reviewers, sample
+// classmates): keep only what the student made (their reviewers, cards, chats, class), drop the rest
+function upgrade(old) {
+  if (old.version === VERSION) return old;
+  const s = fresh();
+  const mine = (id) => !String(id).startsWith('sample-');
+  s.reviewers = (old.reviewers || []).filter((r) => mine(r.id));
+  s.cards = (old.cards || []).filter((c) => mine(c.deck));
+  for (const k of ['chats', 'class', 'studentId']) if (old[k]) s[k] = old[k];
+  if (old.name && old.name !== 'Juan') s.name = old.name;
+  if (s.class) { s.class.board = (s.class.board || []).map((p) => (p.me ? { ...p, points: 0 } : p)); s.class.synced = -1; }
   return s;
 }
 
@@ -43,7 +39,8 @@ let state = null;
 const listeners = new Set();
 export function load() {
   try { state = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { state = null; }
-  if (!state || !Array.isArray(state.reviewers)) state = fresh(true);
+  state = !state || !Array.isArray(state.reviewers) ? fresh() : upgrade(state);
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* blocked: in memory only */ }
   return state;
 }
 export function save() {
@@ -52,7 +49,7 @@ export function save() {
 }
 export const get = () => state || load();
 export const onChange = (f) => listeners.add(f);
-export function reset(demo) { state = fresh(demo); save(); }
+export function reset() { const keep = state && state.studentId; state = fresh(); if (keep) state.studentId = keep; save(); }
 
 // ---------- points, streak, week ----------
 export function award(pts, minutes = 0) {
@@ -110,7 +107,7 @@ export function weakTopic() {
   const scored = s.reviewers.filter((r) => s.quiz[r.id]).sort((a, b) => s.quiz[a.id].last - s.quiz[b.id].last);
   return scored.length && s.quiz[scored[0].id].last < 75 ? scored[0] : null;
 }
-export function weekQuizScore() { const s = get(); const v = Object.values(s.quiz).map((q) => q.last); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 0; }
+export function weekQuizScore() { const s = get(); const v = Object.values(s.quiz).map((q) => q.last); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; } // (null: no quiz taken yet)
 
 // ---------- today's plan, made by Cody ----------
 export function daysToExam() { const s = get(); if (!s.exam || !s.exam.date) return null; const d = Math.ceil((new Date(s.exam.date + 'T00:00') - new Date(dayKey() + 'T00:00')) / DAY); return d >= 0 ? d : null; }
@@ -119,7 +116,8 @@ export function todaysPlan() {
   const revs = s.reviewers;
   // spread the reviewers over the days: a different one each day, newest first
   const day = Math.floor(Date.now() / DAY);
-  const main = revs.filter((r) => !r.id.startsWith('sample-'))[0] || revs[day % revs.length];
+  if (!revs.length) return []; // (nothing to plan until there are notes)
+  const main = revs[day % revs.length];
   const weak = weakTopic();
   const game = revs.find((r) => r.game && r.id !== main.id) || main;
   const drawn = revs.find((r) => r.drawing && r.id !== main.id && r.id !== game.id) || main;

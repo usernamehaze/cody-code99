@@ -31,7 +31,7 @@ school computer. **Teachers** can use the drawings in class.
 | **Study plan** | Set your exam subject and date. Cody plans each day until then, with your weakest topic coming back more often. |
 | **Class leaderboard** | A teacher (or one student) makes a class and shares its 6-letter code. Classmates join, and everyone's points show on one live board. No accounts, and only names and points are shared. |
 | **Chrome extension** | Highlight text on any page (an article, a handout, a Google Doc), right-click, and choose *Make a Cody reviewer* or *Draw it with Cody*. The popup can also turn a whole page into a reviewer. |
-| **Works offline** | Four built-in reviewers (the human heart, the water cycle, photosynthesis, the plant cell) work with no internet and no AI key. After the first visit the app opens offline. |
+| **Works offline** | Draw with Cody has four built-in example drawings (the human heart, the water cycle, photosynthesis, the plant cell) that work with no internet and no AI key. After the first visit the app opens offline. |
 | **Phone and computer** | One web app, a sidebar on computers and a bottom tab bar on phones. Install it to the home screen (it's a PWA). |
 
 ## Architecture
@@ -158,18 +158,18 @@ Install `Cody.apk` on an Android phone (allow *Install unknown apps*), or upload
    **Other**. Leave the build command empty.
 3. Under **Environment Variables**, add `GROQ_API_KEY`, `GEMINI_API_KEY` and (optionally) `ANTHROPIC_API_KEY`.
 4. For class leaderboards: in the project, open **Storage → Create → Upstash (Redis)**, free plan, and connect it.
-   That adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` for you. Without it, the app shows sample classmates.
+   That adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` for you. Without it, classes can't be made on the live site.
 5. Click **Deploy**. Vercel serves the files as they are and runs `api/ai.js` and `api/class.js` as serverless functions.
 6. **Builds for Milestone 3:** upload `Cody-extension.zip` to Google Drive (set to *Anyone with the link*).
 
-**Demo login:** none needed. Cody has no accounts. It opens with a demo student ("Juan") so judges see a full
-dashboard. Its leaderboard shows *sample* classmates until you join a class (**Study plan → Your class**).
-**Start fresh** clears everything, and **Load the demo again** brings the demo back.
+**Demo login:** none needed. Cody has no accounts. It opens empty: no made-up scores, streaks, reviewers or classmates.
+Every number on Home is the student's own, and each empty screen shows Cody and what to do first.
+**Study plan → Start fresh** clears everything on the device.
 
 ## How to demo (about 10 minutes)
 
-1. **Home**: the plan, streak, week and leaderboard.
-2. **My reviewers → The human heart**: key terms, practice questions and the labelled drawing.
+1. **Home** on a fresh device: Cody's empty states. Then **upload your own notes** (a PDF, a photo or pasted text) and open the new reviewer: study guide, key terms and practice questions. Upload before the pitch so the plan, quiz and flashcards have something in them.
+2. **Home** again: today's plan, made from your notes.
 3. **✎ Draw it** on a term, or ask *"how does the water cycle work?"*: Cody draws step by step. Turn on **Voice**.
 4. **Play Label it!**: drag the names on, and watch the combo and points.
 5. **Quiz me on this**: answer, see **Why** with the highlighted part, try **Explain more**.

@@ -3,9 +3,8 @@ import { ask } from '../ai.js';
 import { readNotes } from '../notes.js';
 import { mount, clean } from '../draw.js';
 import { esc, header, ICON, toast, askSure, busy, plural } from '../ui.js';
-import { say } from '../mascot.js';
+import { say, emptyState } from '../mascot.js';
 import { md } from '../md.js';
-import { SAMPLES } from '../samples.js';
 import { saveGuidePdf } from '../pdf.js';
 
 // match a term ("Atria") to a part of the drawing ("Right atrium"), so Draw it and the quiz can point at it
@@ -95,6 +94,7 @@ export function renderList(root, params) {
     ${header('My reviewers', 'Every reviewer has key terms, a drawing, a quiz and flashcards.')}
     <section class="grid-2">
       <div class="card"><h2 class="eyebrow">Your reviewers</h2>
+        ${s.reviewers.length ? '' : emptyState({ mood: 'wave', size: 100, title: 'No reviewers yet', text: 'Drop your notes on the right. Cody turns them into a study guide, key terms, a quiz and flashcards.' })}
         <ul class="list">${s.reviewers.map((r) => `
           <li><a href="#/reviewer/${esc(r.id)}"><b>${esc(r.title)}</b><span class="muted">${esc(r.subject || '')} · ${plural(r.terms.length, 'term')} · ${plural(r.quiz.length, 'question')}</span></a></li>`).join('')}
         </ul></div>
@@ -107,7 +107,6 @@ export function renderList(root, params) {
 export function renderOne(root, id) {
   const r = S.reviewer(id);
   if (!r) { location.hash = '#/reviewers'; return; }
-  if (!r.guide) { const sm = SAMPLES.find((x) => x.id === r.id); if (sm && sm.guide) r.guide = sm.guide; } // (samples saved before they had a guide)
   root.innerHTML = `
     ${header(`Reviewer: ${r.title}`, r.seconds ? `Made by Cody from your notes in ${r.seconds} seconds` : 'Made by Cody from your notes', `
       <a class="btn" href="#/chat?about=${esc(r.id)}">${ICON.chat} Ask Cody about this</a><a class="btn" href="#/flashcards/${esc(r.id)}">Study flashcards</a><a class="btn primary" href="#/quiz/${esc(r.id)}">Quiz me on this</a>`)}
@@ -138,7 +137,7 @@ export function renderOne(root, id) {
         </div>
         <div class="card"><h2 class="eyebrow">Practice questions</h2>
           <ol class="questions">${(r.questions || []).map((q, i) => `<li><a href="#/quiz/${esc(r.id)}">${i + 1}. ${esc(q)}</a></li>`).join('')}</ol>
-          ${r.id.startsWith('sample-') ? '' : `<button class="btn ghost small del">${ICON.trash} Delete this reviewer</button>`}
+          <button class="btn ghost small del">${ICON.trash} Delete this reviewer</button>
         </div>
       </div>
     </section>`;

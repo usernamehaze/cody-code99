@@ -40,7 +40,7 @@ export function render(root) {
           <label>Exam date<input type="date" name="date" value="${esc(s.exam.date || '')}"></label>
           <button class="btn primary">Save my details</button>
         </form>
-        <div class="card class-card"><h2 class="eyebrow">Your class</h2>${classCard(s)}</div>
+        <div class="card class-card"><h2 class="eyebrow">Your class</h2>${classCard(s)}<p class="class-off muted" hidden>Classes aren’t switched on yet. Whoever runs this Cody site needs to connect the class database in Vercel: <b>Storage → Create Database → Upstash (free)</b>, connect it to the project, then redeploy.</p></div>
         <div class="card"><h2 class="eyebrow">Your data</h2>
           <p class="muted">Everything Cody keeps stays on this device. If you join a class, only your name and points are shared with it.</p>
           <div class="row"><button class="btn small fresh">Start fresh</button></div>
@@ -48,6 +48,8 @@ export function render(root) {
       </div>
     </section>`;
   wireClass(root);
+  // (classes need the class database on the server: say so before anyone types a code)
+  if (!s.class) Class.enabled().then((on) => { if (on || !root.isConnected) return; const c = root.querySelector('.class-card'); if (!c) return; c.querySelectorAll('form').forEach((f) => { f.hidden = true; }); c.querySelector('.class-off').hidden = false; });
   const f = root.querySelector('.settings');
   f.addEventListener('submit', (e) => { e.preventDefault(); s.name = f.name.value.trim(); s.exam = { subject: f.subject.value.trim(), date: f.date.value }; S.save(); toast('Saved. Cody updated your plan.'); render(root); });
   root.querySelector('.fresh').addEventListener('click', async () => {

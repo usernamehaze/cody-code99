@@ -10,12 +10,13 @@ import * as label from './views/label.js';
 import * as plan from './views/plan.js';
 import * as importer from './views/import.js';
 import * as chat from './views/chat.js';
+import * as room from './views/room.js';
 import * as Mascot from './mascot.js';
 import * as Class from './classroom.js';
 
 const NAV = [
   ['home', 'Home', '#/', ICON.home], ['chat', 'Ask Cody', '#/chat', ICON.chat], ['reviewers', 'My reviewers', '#/reviewers', ICON.file], ['draw', 'Draw with Cody', '#/draw', ICON.pencil],
-  ['quiz', 'Quiz', '#/quiz', ICON.quiz], ['flashcards', 'Flashcards', '#/flashcards', ICON.cards], ['label', 'Label it! game', '#/label', ICON.game], ['plan', 'Study plan', '#/plan', ICON.plan],
+  ['quiz', 'Quiz', '#/quiz', ICON.quiz], ['flashcards', 'Flashcards', '#/flashcards', ICON.cards], ['label', 'Label it! game', '#/label', ICON.game], ['room', 'Class room', '#/room', ICON.users], ['plan', 'Study plan', '#/plan', ICON.plan],
 ];
 const TABS = [['home', 'Home', '#/', ICON.home], ['reviewers', 'Reviewers', '#/reviewers', ICON.file], ['chat', 'Ask', '#/chat', ICON.chat], ['label', 'Games', '#/label', ICON.game], ['plan', 'Me', '#/plan', ICON.me]];
 const SECTION = { reviewer: 'reviewers', import: 'reviewers' };
@@ -54,7 +55,7 @@ function route() {
   const views = {
     home: () => home.render(main), reviewers: () => reviewers.renderList(main, params), reviewer: () => reviewers.renderOne(main, id),
     draw: () => draw.render(main, id, params), quiz: () => quiz.render(main, id), flashcards: () => cards.render(main, id),
-    label: () => label.render(main, id), chat: () => chat.render(main, id, params), plan: () => plan.render(main), import: () => importer.render(main, params),
+    label: () => label.render(main, id), chat: () => chat.render(main, id, params), room: () => room.render(main), plan: () => plan.render(main), import: () => importer.render(main, params),
   };
   cleanup = (views[name || 'home'] || views.home)() || null;
   streakCard();

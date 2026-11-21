@@ -41,6 +41,7 @@ export function render(root) {
           <div class="bar ${x.today ? 'today' : ''} ${x.future || !x.min ? 'low' : ''}"><i style="height:${Math.max(6, Math.round((x.min / max) * 100))}%" title="${x.min} min"></i><span>${x.name}</span></div>`).join('')}
         </div>
         <h2 class="eyebrow gap">${s.class ? `Class leaderboard · ${esc(s.class.name)}` : 'Class leaderboard'}</h2>
+        ${s.class ? `<a class="btn small room-link" href="#/room">${ICON.users} Open the class room</a>` : ''}
         ${board.length ? '' : emptyState({ mood: 'happy', size: 72, title: 'No class yet', text: 'Make a class or join one with its code to see your classmates here.', actions: [{ label: 'Join or make a class', href: '#/plan', primary: false }] }).replace('class="empty-cm"', 'class="empty-cm sm"')}
         <ol class="leaders">${board.map((p, i) => `
           <li class="${p.me ? 'me' : ''}"><span class="rank">${i + 1}</span><span class="avatar">${esc((p.name || '?').slice(0, 2).toUpperCase())}</span><span class="who">${esc(p.name)}${p.me ? ' (you)' : ''}</span><b class="gold">${fmt(p.points)}</b></li>`).join('')}

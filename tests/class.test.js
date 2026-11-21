@@ -38,3 +38,26 @@ test('on Vercel with no store, it says so', async () => {
   try { assert.equal((await call(null, 'GET')).body.enabled, false); assert.equal((await call({ action: 'create' })).code, 503); }
   finally { delete process.env.VERCEL; }
 });
+
+test('the class room: post, poll from the start and from a point, undo, voice, strangers refused', async () => {
+  const made = await call({ action: 'create', className: 'Room test' }); const code = made.body.code;
+  await call({ action: 'join', code, id: 'roomaaaaaaaa', name: 'Ana', points: 0 });
+  await call({ action: 'join', code, id: 'roombbbbbbbb', name: 'Ben', points: 0 });
+  const m = await call({ action: 'post', code, id: 'roomaaaaaaaa', op: { k: 'msg', t: 'Hi <b>class</b>' } });
+  assert.equal(m.code, 200); assert.equal(m.body.idx, 0);
+  await call({ action: 'post', code, id: 'roombbbbbbbb', op: { k: 'stroke', c: '#ff0000', w: 4, p: [10, 10, 50, 2000] } });
+  assert.equal((await call({ action: 'post', code, id: 'roombbbbbbbb', op: { k: 'eval', x: 1 } })).code, 400, 'unknown kinds are refused');
+  assert.equal((await call({ action: 'post', code, id: 'strangerxxxx', op: { k: 'msg', t: 'hi' } })).code, 403, 'only members post');
+  const first = await call({ action: 'poll', code, id: 'roombbbbbbbb', since: -1, here: true });
+  assert.deepEqual(first.body.ops.map((o) => [o.k, o.n, o.mine]), [['msg', 'Ana', false], ['stroke', 'Ben', true]]);
+  assert.ok(!first.body.ops[0].t.includes('<'), 'markup is stripped');
+  assert.deepEqual(first.body.ops[1].p, [10, 10, 50, 1000], 'points are clamped');
+  assert.ok(!JSON.stringify(first.body).includes('roomaaaaaaaa'), 'ids are never sent');
+  assert.deepEqual(first.body.online.map((x) => x.name), ['Ben']);
+  await call({ action: 'post', code, id: 'roombbbbbbbb', op: { k: 'undo', of: 1 } });
+  const v = await call({ action: 'voice', code, id: 'roomaaaaaaaa', audio: 'AAAA', type: 'audio/webm;codecs=opus', secs: 3 });
+  const later = await call({ action: 'poll', code, id: 'roomaaaaaaaa', since: first.body.next, base: first.body.base });
+  assert.deepEqual(later.body.ops.map((o) => o.k), ['undo', 'voice']); assert.equal(later.body.ops[1].idx, v.body.idx);
+  const audio = await call({ action: 'audio', code, vid: later.body.ops[1].vid });
+  assert.equal(audio.body.audio, 'AAAA');
+});

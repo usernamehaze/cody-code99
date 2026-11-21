@@ -46,3 +46,9 @@ let timer = null;
 export function watch() {
   S.onChange((s) => { if (s.class && s.points !== s.class.synced && !timer) timer = setTimeout(() => { timer = null; refresh(); }, 4000); });
 }
+
+// ---------- the class room (js/views/room.js) ----------
+export const post = (op) => call({ action: 'post', code: S.get().class.code, id: myId(), op });
+export const poll = (since, base, here) => call({ action: 'poll', code: S.get().class.code, id: myId(), since, base, here });
+export const sendVoice = (audio, type, secs) => call({ action: 'voice', code: S.get().class.code, id: myId(), audio, type, secs });
+export const getAudio = (vid) => call({ action: 'audio', code: S.get().class.code, vid });

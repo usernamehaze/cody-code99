@@ -58,7 +58,7 @@ export function render(root) {
 function classCard(s) {
   if (s.class) return `<p class="muted">You are in <b>${esc(s.class.name)}</b>. Classmates join with this code:</p>
     <p class="class-code">${esc(s.class.code)}</p>
-    <div class="row"><button class="btn small copy">Copy code</button><a class="btn small" href="#/">See the board</a><button class="btn ghost small leave">Leave class</button></div>`;
+    <div class="row"><button class="btn small copy">Copy code</button><a class="btn small primary" href="#/room">Open the class room</a><button class="btn ghost small leave">Leave class</button></div>`;
   return `<p class="muted">See your real classmates on the leaderboard. Your teacher (or one student) makes the class, then everyone joins with its code. Only your name and points are shared.</p>
     <form class="inline join"><input name="code" maxlength="6" placeholder="Class code" aria-label="Class code" autocomplete="off"><button class="btn">Join class</button></form>
     <form class="inline make" style="margin-top:10px"><input name="cname" maxlength="40" placeholder="New class name, e.g. Grade 9 Rizal" aria-label="New class name" style="text-transform:none"><button class="btn">Make a class</button></form>

@@ -29,7 +29,7 @@ school computer. **Teachers** can use the drawings in class.
 | **Quiz** | Multiple choice from your own notes. After every answer, **Why** shows the reason with the right part of the drawing highlighted. **Explain more** gives an everyday example. |
 | **Flashcards** | Spaced repetition (Leitner boxes). Rate a card **Again**, **Almost** or **Got it**; missed cards come back sooner. The back of each card shows Cody's drawing with that part lit up. |
 | **Study plan** | Set your exam subject and date. Cody plans each day until then, with your weakest topic coming back more often. |
-| **Class leaderboard** | A teacher (or one student) makes a class and shares its 6-letter code. Classmates join, and everyone's points show on one live board. No accounts, and only names and points are shared. |
+| **Class room** | A teacher or student makes a class and shares its 6-letter code. Inside the class room, classmates **draw together** on one board, **chat**, send **voice messages**, **ask Cody for everyone** (one person asks, the whole class sees the answer), and **share reviewers** (a classmate saves a copy with its study guide, quiz and flashcards). It also shows who's here and a class leaderboard. Words that sound like a student is at risk never go to the class: they open a private chat with Cody's care response. |
 | **Chrome extension** | Highlight text on any page (an article, a handout, a Google Doc), right-click, and choose *Make a Cody reviewer* or *Draw it with Cody*. The popup can also turn a whole page into a reviewer. |
 | **Works offline** | Draw with Cody has four built-in example drawings (the human heart, the water cycle, photosynthesis, the plant cell) that work with no internet and no AI key. After the first visit the app opens offline. |
 | **Phone and computer** | One web app, a sidebar on computers and a bottom tab bar on phones. Install it to the home screen (it's a PWA). |
@@ -119,7 +119,7 @@ You need **Node.js 20 or newer** ([nodejs.org](https://nodejs.org)).
    ```bash
    npm test
    ```
-5. **Try class leaderboards locally.** `npm run dev` keeps classes in memory, so they work on one computer
+5. **Try the class room locally.** `npm run dev` keeps classes in memory, so they work on one computer
    (open a second browser profile to be a second student).
 6. **Build the extension**
    ```bash
@@ -157,8 +157,9 @@ Install `Cody.apk` on an Android phone (allow *Install unknown apps*), or upload
 2. Set the **Project Name** to `cody-code99` (this gives `cody-code99.vercel.app`; plain `cody` was taken). Framework preset:
    **Other**. Leave the build command empty.
 3. Under **Environment Variables**, add `GROQ_API_KEY`, `GEMINI_API_KEY` and (optionally) `ANTHROPIC_API_KEY`.
-4. For class leaderboards: in the project, open **Storage → Create → Upstash (Redis)**, free plan, and connect it.
+4. For the class room and leaderboard: in the project, open **Storage → Create → Upstash (Redis)**, free plan, and connect it.
    That adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` for you. Without it, classes can't be made on the live site.
+   The room checks for news every 2.5 seconds per student while it's open; Upstash's free plan suits a class or a demo.
 5. Click **Deploy**. Vercel serves the files as they are and runs `api/ai.js` and `api/class.js` as serverless functions.
 6. **Builds for Milestone 3:** upload `Cody-extension.zip` to Google Drive (set to *Anyone with the link*).
 

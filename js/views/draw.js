@@ -39,7 +39,7 @@ export function render(root, id, params) {
     ${header('Draw with Cody', asked ? `You asked: ${asked}` : 'Ask anything. Cody draws it and explains it step by step.', `<span class="pill status-pill" hidden><span class="mini-logo">${LOGO}</span><span class="st"></span></span>`)}
     <form class="ask">
       <input name="q" placeholder="Ask Cody to draw something, e.g. how does the water cycle work?" value="${esc(rev ? '' : q)}" aria-label="What should Cody draw?">
-      <button class="btn primary">Draw it</button>
+      <button class="btn">Draw it</button>
     </form>
     <div class="chips">${['How does the water cycle work?', 'Parts of the human heart', 'How photosynthesis works', 'The plant cell'].map((c) => `<button class="chip" type="button">${c}</button>`).join('')}</div>
     <section class="split grow">
@@ -48,7 +48,7 @@ export function render(root, id, params) {
         <h2 class="eyebrow">Cody explains</h2>
         <ol class="steps"></ol>
         <div class="controls">
-          <button class="btn back">Back</button><button class="btn primary play">Pause</button><button class="btn next">Next</button>
+          <button class="btn back">Back a step</button><button class="btn primary play">Pause</button><button class="btn next">Next step</button>
           <button class="btn voice" aria-pressed="false">${ICON.sound}<span>Voice</span></button>
         </div>
         <div class="controls two"><button class="btn to-game">Play Label it!</button><button class="btn save">Save to reviewer</button></div>

@@ -48,3 +48,44 @@ export function speak(text, onend) {
   speechSynthesis.speak(u);
 }
 export const hush = () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); };
+
+// "1 message", "3 messages"
+export const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+
+/* Show that it's working (Cassie's rule 8): the button shows a spinner and "-ing…" words, ignores repeat
+   taps, and comes back when the work is done (or fails). Returns what the work returned. */
+export async function busy(btn, words, work) {
+  if (!btn || btn.dataset.busy) return undefined;
+  const before = btn.innerHTML, width = btn.offsetWidth;
+  btn.dataset.busy = '1'; btn.disabled = true; btn.setAttribute('aria-busy', 'true');
+  btn.style.minWidth = width + 'px';
+  btn.innerHTML = `<span class="spin" aria-hidden="true"></span><span>${esc(words)}</span>`;
+  try { return await work(); }
+  finally { if (btn.isConnected) { btn.innerHTML = before; btn.disabled = false; btn.removeAttribute('aria-busy'); btn.style.minWidth = ''; } delete btn.dataset.busy; }
+}
+
+/* Destructive actions are obvious (Cassie's rule 6): a sheet instead of the browser's OK/Cancel.
+   The title names the thing, the text says what goes and whether it comes back, Cancel has focus
+   (so Enter on autopilot keeps things), and the action is red and says what it does.
+   askSure({ title, body, action, danger = true }) -> Promise<boolean> */
+export function askSure({ title, body = '', action, danger = true }) {
+  return new Promise((done) => {
+    const back = document.createElement('div');
+    back.className = 'sure-back';
+    back.innerHTML = `<div class="sure-sheet" role="alertdialog" aria-modal="true" aria-labelledby="sure-t" aria-describedby="sure-b">
+      <h2 id="sure-t">${esc(title)}</h2>${body ? `<p id="sure-b">${esc(body)}</p>` : ''}
+      <div class="sure-row"><button type="button" class="btn sure-no">Cancel</button><button type="button" class="btn ${danger ? 'sure-danger' : 'primary'} sure-yes">${esc(action)}</button></div></div>`;
+    const before = document.activeElement;
+    const close = (ok) => { document.removeEventListener('keydown', keys, true); back.remove(); if (before && before.focus) before.focus({ preventScroll: true }); done(ok); };
+    const keys = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); close(false); }
+      if (e.key === 'Tab') { const f = [...back.querySelectorAll('button')]; const i = f.indexOf(document.activeElement); e.preventDefault(); f[(i + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus(); }
+    };
+    back.addEventListener('click', (e) => { if (e.target === back) close(false); });
+    back.querySelector('.sure-no').addEventListener('click', () => close(false));
+    back.querySelector('.sure-yes').addEventListener('click', () => close(true));
+    document.addEventListener('keydown', keys, true);
+    document.body.appendChild(back);
+    back.querySelector('.sure-no').focus();
+  });
+}

@@ -1,15 +1,18 @@
 import * as S from '../store.js';
 import { mount } from '../draw.js';
 import { esc, header, toast } from '../ui.js';
-import { say } from '../mascot.js';
+import { say, emptyState } from '../mascot.js';
 
 // "The aorta is the biggest artery" -> "This part is the biggest artery" (the tip must not give the name away)
 const hideName = (say, label) => { const t = say.replace(new RegExp(`(the\\s+)?${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'ig'), 'this part'); return t.charAt(0).toUpperCase() + t.slice(1); };
 
 export function pick(root, kind, title, sub) { // a chooser, when no reviewer is picked yet
   const list = S.get().reviewers.filter((r) => kind !== 'label' || (r.drawing && r.game && r.game.length));
-  root.innerHTML = `${header(title, sub)}
-    <section class="pick">${list.map((r) => `<a class="card pick-item" href="#/${kind}/${esc(r.id)}"><b>${esc(r.title)}</b><span class="muted">${esc(r.subject || '')}${S.get().quiz[r.id] ? ` · best ${S.get().quiz[r.id].best}%` : ''}</span></a>`).join('') || '<p class="muted">Make a reviewer first.</p>'}</section>`;
+  root.innerHTML = `${header(title, list.length ? sub : '')}
+    ${list.length ? `<section class="pick">${list.map((r) => `<a class="card pick-item" href="#/${kind}/${esc(r.id)}"><b>${esc(r.title)}</b><span class="muted">${esc(r.subject || '')}${S.get().quiz[r.id] ? ` · best ${S.get().quiz[r.id].best}%` : ''}</span></a>`).join('')}</section>`
+      : `<section class="card">${kind === 'label'
+        ? emptyState({ mood: 'draw', title: 'No drawings to label yet', text: S.get().reviewers.length ? 'Ask Cody to draw something, save it, and it becomes a Label it! game.' : 'Upload your notes or ask Cody to draw something. Every drawing becomes a Label it! game.', actions: [{ label: 'Draw with Cody', href: '#/draw' }, { label: 'Upload my notes', href: '#/reviewers?upload=1' }] })
+        : emptyState({ mood: 'think', title: 'No quizzes yet', text: 'Cody writes a 10-question quiz from your notes. Upload them to start.', actions: [{ label: 'Upload my notes', href: '#/reviewers?upload=1' }, { label: 'Quiz me in chat', href: '#/chat?new=1&mode=quiz' }] })}</section>`}`;
 }
 
 export function render(root, id) {

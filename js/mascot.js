@@ -64,8 +64,12 @@ const TIPS = [
   'Try teaching me what you learned. Explaining is the best review.',
 ];
 let slot = null, timer = null, idle = null, sleeping = false;
+// (Cassie's audit: content owns the screen) on a phone the bubble floats over the page, so it stays out of
+// the chat, where it would sit on an answer; Cody still changes mood there
+const quiet = () => window.matchMedia('(max-width: 860px)').matches && /^#\/chat/.test(location.hash);
 function paint(mood, say, ms = 4200) {
   if (!slot) return;
+  if (say && quiet()) say = '';
   slot.querySelectorAll('.cm-face').forEach((f) => { f.innerHTML = mascot(mood, +f.dataset.size); });
   const bubbles = slot.querySelectorAll('.cm-bubble');
   bubbles.forEach((b) => { b.textContent = say || ''; b.classList.toggle('on', !!say); });
@@ -86,9 +90,17 @@ export function mount(els) {
   }));
   window.addEventListener('cody:react', (e) => react(e.detail.mood, e.detail.say, e.detail.ms));
   ['pointerdown', 'keydown'].forEach((ev) => window.addEventListener(ev, () => { if (sleeping) { sleeping = false; paint('wave', 'Welcome back!', 2500); } wake(); }, { passive: true }));
-  setTimeout(() => paint('wave', 'Hi! I am Cody, your study buddy.', 3800), 600);
+  // the hello once a day, not on every visit
+  let hello = true; try { const k = 'cody.hello', d = new Date().toDateString(); hello = localStorage.getItem(k) !== d; localStorage.setItem(k, d); } catch (e) { /* storage blocked: say hi */ }
+  if (hello) setTimeout(() => paint('wave', 'Hi! I am Cody, your study buddy.', 3800), 600);
   wake();
 }
 // for screens: window-level, so they don't need to import this file
 export const say = (mood, text, ms) => window.dispatchEvent(new CustomEvent('cody:react', { detail: { mood, say: text, ms } }));
 export const bubbleHtml = (text) => `<span class="cm-bubble">${esc(text || '')}</span>`;
+
+/* An empty state: Cody, a short title, one line of what to do, and the action(s) that fill it.
+   actions: [{ label, href, primary }] — the first filled, the rest outlined (one main action per screen). */
+export function emptyState({ mood = 'wave', title, text = '', actions = [], size = 120 }) {
+  return `<div class="empty-cm">${mascot(mood, size)}<h2>${esc(title)}</h2>${text ? `<p>${esc(text)}</p>` : ''}${actions.length ? `<div class="row center">${actions.map((a, i) => `<a class="btn ${a.primary === false || i ? '' : 'primary'}" href="${esc(a.href)}">${esc(a.label)}</a>`).join('')}</div>` : ''}</div>`;
+}

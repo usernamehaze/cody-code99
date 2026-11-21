@@ -2,10 +2,9 @@ import * as S from '../store.js';
 import { ask } from '../ai.js';
 import { readNotes } from '../notes.js';
 import { mount, clean } from '../draw.js';
-import { esc, header, ICON, toast } from '../ui.js';
-import { say } from '../mascot.js';
+import { esc, header, ICON, toast, askSure, busy, plural } from '../ui.js';
+import { say, emptyState } from '../mascot.js';
 import { md } from '../md.js';
-import { SAMPLES } from '../samples.js';
 import { saveGuidePdf } from '../pdf.js';
 
 // match a term ("Atria") to a part of the drawing ("Right atrium"), so Draw it and the quiz can point at it
@@ -69,12 +68,17 @@ function uploadZone() {
 }
 function wireUpload(root) {
   const zone = root.querySelector('.drop'), input = zone.querySelector('input'), status = root.querySelector('.status');
-  let busy = false;
-  const run = async (what) => {
-    if (busy) return; busy = true; zone.classList.add('busy');
-    try { const rev = await makeReviewer(what, (m) => { status.textContent = m; }); S.award(15, 2); toast('Your reviewer is ready!'); say('cheer', 'Your reviewer is ready! Try the quiz next.'); location.hash = '#/reviewer/' + rev.id; }
+  let working = false;
+  const show = (m) => { status.innerHTML = `<span class="spin" aria-hidden="true"></span> ${esc(m)}`; };
+  const make = async (what) => {
+    try { const rev = await makeReviewer(what, show); S.award(15, 2); toast('Your reviewer is ready!'); say('cheer', 'Your reviewer is ready! Try the quiz next.'); location.hash = '#/reviewer/' + rev.id; }
     catch (e) { status.textContent = e.message; }
-    finally { busy = false; zone.classList.remove('busy'); }
+  };
+  // one upload at a time; pasted notes also spin the button that was pressed
+  const run = async (what) => {
+    if (working) return; working = true; zone.classList.add('busy');
+    try { if (what.text) await busy(root.querySelector('.go-paste'), 'Making your reviewer…', () => make(what)); else await make(what); }
+    finally { working = false; zone.classList.remove('busy'); }
   };
   input.addEventListener('change', () => input.files[0] && run({ file: input.files[0] }));
   zone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
@@ -90,8 +94,9 @@ export function renderList(root, params) {
     ${header('My reviewers', 'Every reviewer has key terms, a drawing, a quiz and flashcards.')}
     <section class="grid-2">
       <div class="card"><h2 class="eyebrow">Your reviewers</h2>
+        ${s.reviewers.length ? '' : emptyState({ mood: 'wave', size: 100, title: 'No reviewers yet', text: 'Drop your notes on the right. Cody turns them into a study guide, key terms, a quiz and flashcards.' })}
         <ul class="list">${s.reviewers.map((r) => `
-          <li><a href="#/reviewer/${esc(r.id)}"><b>${esc(r.title)}</b><span class="muted">${esc(r.subject || '')} · ${r.terms.length} terms · ${r.quiz.length} questions</span></a></li>`).join('')}
+          <li><a href="#/reviewer/${esc(r.id)}"><b>${esc(r.title)}</b><span class="muted">${esc(r.subject || '')} · ${plural(r.terms.length, 'term')} · ${plural(r.quiz.length, 'question')}</span></a></li>`).join('')}
         </ul></div>
       <div class="card"><h2 class="eyebrow">New reviewer</h2>${uploadZone()}</div>
     </section>`;
@@ -102,10 +107,9 @@ export function renderList(root, params) {
 export function renderOne(root, id) {
   const r = S.reviewer(id);
   if (!r) { location.hash = '#/reviewers'; return; }
-  if (!r.guide) { const sm = SAMPLES.find((x) => x.id === r.id); if (sm && sm.guide) r.guide = sm.guide; } // (samples saved before they had a guide)
   root.innerHTML = `
     ${header(`Reviewer: ${r.title}`, r.seconds ? `Made by Cody from your notes in ${r.seconds} seconds` : 'Made by Cody from your notes', `
-      <a class="btn" href="#/chat?about=${esc(r.id)}">${ICON.chat} Ask Cody about this</a><a class="btn" href="#/flashcards/${esc(r.id)}">Make flashcards</a><a class="btn primary" href="#/quiz/${esc(r.id)}">Quiz me on this</a>`)}
+      <a class="btn" href="#/chat?about=${esc(r.id)}">${ICON.chat} Ask Cody about this</a><a class="btn" href="#/flashcards/${esc(r.id)}">Study flashcards</a><a class="btn primary" href="#/quiz/${esc(r.id)}">Quiz me on this</a>`)}
     <section class="grid-2 grow">
       <div class="col">
         ${r.drawing ? `<div class="card mobile-first"><div class="board sm" id="rev-draw"></div></div>` : ''}
@@ -133,28 +137,29 @@ export function renderOne(root, id) {
         </div>
         <div class="card"><h2 class="eyebrow">Practice questions</h2>
           <ol class="questions">${(r.questions || []).map((q, i) => `<li><a href="#/quiz/${esc(r.id)}">${i + 1}. ${esc(q)}</a></li>`).join('')}</ol>
-          ${r.id.startsWith('sample-') ? '' : `<button class="btn ghost small del">${ICON.trash} Delete this reviewer</button>`}
+          <button class="btn ghost small del">${ICON.trash} Delete this reviewer</button>
         </div>
       </div>
     </section>`;
   wireUpload(root);
   if (r.drawing) { const c = mount(root.querySelector('#rev-draw'), r.drawing, {}); if (c) c.showAll(); }
   const del = root.querySelector('.del');
-  if (del) del.addEventListener('click', () => { if (confirm(`Delete "${r.title}" and its flashcards?`)) { S.removeReviewer(r.id); location.hash = '#/reviewers'; } });
+  if (del) del.addEventListener('click', async () => {
+    const n = S.get().cards.filter((c) => c.deck === r.id).length;
+    if (await askSure({ title: `Delete “${r.title}”?`, body: `Its study guide, key terms, quiz and ${plural(n, 'flashcard')} will be gone from this device. This can't be undone.`, action: 'Delete reviewer' })) { S.removeReviewer(r.id); location.hash = '#/reviewers'; }
+  });
   root.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
     root.querySelectorAll('.tab').forEach((x) => { const on = x === t; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
     root.querySelector('.guide-card').hidden = t.dataset.v !== 'guide';
     root.querySelector('.terms-card').hidden = t.dataset.v !== 'terms';
   }));
   const pdf = root.querySelector('.save-pdf');
-  if (pdf) pdf.addEventListener('click', async () => {
+  if (pdf) pdf.addEventListener('click', () => busy(pdf, 'Making the PDF…', async () => {
     // a real PDF file, made on the device (iPhones block websites from opening the print dialog)
-    const label = pdf.innerHTML; pdf.disabled = true; pdf.textContent = 'Making PDF…';
     const name = `${(r.title || 'Reviewer').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'Reviewer'}_Reviewer.pdf`;
     try { await saveGuidePdf(r.guide || guideFrom(r), name); toast('PDF saved'); }
     catch (e) { toast(e.message || 'Could not make the PDF.'); }
-    finally { pdf.disabled = false; pdf.innerHTML = label; }
-  });
+  }));
   const copy = root.querySelector('.copy-guide');
   if (copy) copy.addEventListener('click', () => navigator.clipboard.writeText(r.guide || guideFrom(r)).then(() => toast('Study guide copied'), () => toast('Could not copy')));
   S.markPlan('read-' + r.id);

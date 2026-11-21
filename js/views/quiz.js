@@ -2,7 +2,7 @@ import * as S from '../store.js';
 import { ask } from '../ai.js';
 import { mount } from '../draw.js';
 import { pick } from './label.js';
-import { esc, header, ICON } from '../ui.js';
+import { esc, header, ICON, busy } from '../ui.js';
 import { say } from '../mascot.js';
 
 export function render(root, id) {
@@ -47,11 +47,13 @@ export function render(root, id) {
     why.querySelector('.why-text').textContent = (right ? 'Correct! ' : `Not quite. The answer is "${q.choices[q.a]}". `) + (q.why || '');
     const board = why.querySelector('#why-board');
     if (rev.drawing && q.part && rev.drawing.parts.some((p) => p.id === q.part)) { const c = mount(board, rev.drawing, {}); c.showAll(); c.highlight(q.part); } else board.remove();
-    why.querySelector('.explain').addEventListener('click', async (e) => {
+    why.querySelector('.explain').addEventListener('click', (e) => {
       const btn = e.currentTarget, more = why.querySelector('.more');
-      btn.disabled = true; more.hidden = false; more.textContent = 'Cody is thinking…';
-      try { const { data } = await ask('explain', { question: q.q, answer: q.choices[q.a], why: q.why, topic: rev.title }); more.textContent = data.text; }
-      catch (err) { const t = rev.terms.find((x) => x.part && x.part === q.part); more.textContent = t ? `${t.term}: ${t.meaning}` : err.message; }
+      busy(btn, 'Asking Cody…', async () => {
+        try { const { data } = await ask('explain', { question: q.q, answer: q.choices[q.a], why: q.why, topic: rev.title }); more.textContent = data.text; }
+        catch (err) { const t = rev.terms.find((x) => x.part && x.part === q.part); more.textContent = t ? `${t.term}: ${t.meaning}` : err.message; }
+        more.hidden = false;
+      }).then(() => { btn.remove(); });
     });
     why.querySelector('.next').addEventListener('click', () => { if (i < qs.length - 1) { i++; answered = false; view(); } else done(); });
     why.querySelector('.next').focus();

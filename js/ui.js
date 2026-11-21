@@ -23,6 +23,11 @@ export const ICON = {
   send: P('<path d="M5 12h14M13 6l6 6-6 6"/>'),
   copy: P('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'),
   plus: P('<path d="M12 5v14M5 12h14"/>'),
+  users: P('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>'),
+  undo: P('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'),
+  stop: P('<rect x="6" y="6" width="12" height="12" rx="2"/>'),
+  play: P('<path d="M7 4.5v15l12-7.5z"/>'),
+  share: P('<path d="M12 15V3M7 8l5-5 5 5M5 14v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/>'),
   trash: P('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'),
 };
 // Cody's face: curly braces for cheeks (a coder's smile)

@@ -61,3 +61,10 @@ test('the class room: post, poll from the start and from a point, undo, voice, s
   const audio = await call({ action: 'audio', code, vid: later.body.ops[1].vid });
   assert.equal(audio.body.audio, 'AAAA');
 });
+
+test('finds the database keys even with a prefix Vercel added', async () => {
+  const { kvMode } = await import('../lib/kv.js');
+  process.env.VERCEL = '1'; process.env.STORAGE_KV_REST_API_URL = 'https://x.upstash.io'; process.env.STORAGE_KV_REST_API_TOKEN = 't';
+  try { assert.equal(kvMode(), 'redis'); }
+  finally { delete process.env.VERCEL; delete process.env.STORAGE_KV_REST_API_URL; delete process.env.STORAGE_KV_REST_API_TOKEN; }
+});

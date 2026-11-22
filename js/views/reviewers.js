@@ -6,6 +6,7 @@ import { esc, header, ICON, toast, askSure, busy, plural } from '../ui.js';
 import { say, emptyState } from '../mascot.js';
 import { md } from '../md.js';
 import { saveGuidePdf } from '../pdf.js';
+import { saveGuideDocx } from '../docx.js';
 import { premium } from '../account.js';
 
 // match a term ("Atria") to a part of the drawing ("Right atrium"), so Draw it and the quiz can point at it
@@ -54,6 +55,22 @@ export function guideFrom(r) {
   const qs = [...(r.questions || []), ...r.quiz.slice(0, 5).map((q) => q.q)].filter((q, i, a) => a.indexOf(q) === i).slice(0, 8);
   return `# REVIEWER: ${r.title}\n*(Made by Cody from ${r.source ? r.source.name : 'your notes'})*\n\n---\n\n## 1. The big picture\n${r.summary || `This reviewer covers ${r.title.toLowerCase()}: ${r.terms.slice(0, 4).map((t) => t.term).join(', ')} and more.`}\n\n---\n\n## 2. Key ideas\n${r.terms.map((t) => `- **${t.term}**: ${t.meaning}`).join('\n')}\n\n---\n\n## 3. Key terms to remember\n| Term | Meaning |\n|---|---|\n${rows}\n\n---\n\n## 4. Review questions\n${qs.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n---\n\n*End of reviewer: ${r.title}*`;
 }
+
+// the file a student saves: the study guide, then the quiz with an answer key, then the flashcards
+export function reviewerDoc(r) {
+  const end = /\n+-*\s*\n*\*End of reviewer[^\n]*\*\s*$/i;
+  let out = (r.guide || guideFrom(r)).replace(end, '');
+  const one = (t) => String(t || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/');
+  const L = 'ABCD';
+  if (r.quiz && r.quiz.length) {
+    out += `\n\n---\n\n## Practice quiz\n*(Answer first, then check the answer key below.)*\n\n`;
+    out += r.quiz.map((q, i) => `**${i + 1}. ${one(q.q)}**\n\n${q.choices.map((c, j) => `- ${L[j]}. ${one(c)}`).join('\n')}`).join('\n\n');
+    out += `\n\n---\n\n## Answer key\n${r.quiz.map((q, i) => `${i + 1}. **${L[q.a]}. ${one(q.choices[q.a])}**${q.why ? `: ${one(q.why)}` : ''}`).join('\n')}`;
+  }
+  if (r.cards && r.cards.length) out += `\n\n---\n\n## Flashcards\n| Front | Back |\n|---|---|\n${r.cards.map((c) => `| ${one(c.front)} | ${one(c.back)} |`).join('\n')}`;
+  return `${out}\n\n---\n\n*End of reviewer: ${r.title}. Made with Cody.*`;
+}
+const fileName = (r, ext) => `${(r.title || 'Reviewer').replace(/[^\p{L}\p{N}\- ]+/gu, '').trim().replace(/\s+/g, '_') || 'Reviewer'}_Reviewer.${ext}`;
 
 function uploadZone() {
   return `<label class="drop" tabindex="0">
@@ -141,7 +158,7 @@ export function renderOne(root, id) {
           <button class="tab on" role="tab" aria-selected="true" data-v="guide">Study guide</button><button class="tab" role="tab" aria-selected="false" data-v="terms">Key terms</button>
         </div>
         <div class="card guide-card" data-v="guide">
-          <div class="guide-tools">${r.guide || r.guideState !== 'writing' ? `<button class="btn small save-pdf">${ICON.file} Save as PDF</button><button class="btn small copy-guide">${ICON.copy} Copy</button>` : ''}</div>
+          <div class="guide-tools">${r.guide || r.guideState !== 'writing' ? `<span class="muted save-as">Save the reviewer with its quiz, answer key and flashcards</span><button class="btn small save-pdf" aria-label="Save as PDF">${ICON.file} PDF</button><button class="btn small save-docx" aria-label="Save as a Word document">${ICON.file} Word</button><button class="btn small copy-guide" aria-label="Copy the reviewer">${ICON.copy} Copy</button>` : ''}</div>
           ${r.guideState === 'writing' && !r.guide ? `<div class="guide-wait"><div class="thinking"><span></span><span></span><span></span></div><p>Cody is writing your full study guide. The key terms, quiz and flashcards are ready now.</p></div>` : ''}
           ${r.guide || r.guideState !== 'writing' ? `<article class="guide-doc">${md(r.guide || guideFrom(r), { headings: 'doc' })}</article>` : ''}
           ${r.guideState === 'failed' ? `<p class="muted small">Cody could not write the long study guide this time, so this one is made from your key terms.</p>` : ''}
@@ -181,12 +198,19 @@ export function renderOne(root, id) {
   const pdf = root.querySelector('.save-pdf');
   if (pdf) pdf.addEventListener('click', () => busy(pdf, 'Making the PDF…', async () => {
     // a real PDF file, made on the device (iPhones block websites from opening the print dialog)
-    const name = `${(r.title || 'Reviewer').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'Reviewer'}_Reviewer.pdf`;
-    try { await saveGuidePdf(r.guide || guideFrom(r), name); toast('PDF saved'); }
+    const text = reviewerDoc(r);
+    // the PDF's fonts only know Western letters: a reviewer in Chinese, Japanese or Korean goes to Word instead
+    if ((text.match(/[^\x00-\u024f\u2000-\u27ff\s]/g) || []).length > text.length * 0.05) { toast('This reviewer uses letters the PDF can’t show. Use Save as Word.'); return; }
+    try { await saveGuidePdf(text, fileName(r, 'pdf')); toast('PDF saved'); }
     catch (e) { toast(e.message || 'Could not make the PDF.'); }
   }));
+  const docx = root.querySelector('.save-docx');
+  if (docx) docx.addEventListener('click', () => busy(docx, 'Making the Word file…', async () => {
+    try { saveGuideDocx(reviewerDoc(r), fileName(r, 'docx')); toast('Word file saved'); }
+    catch (e) { toast(e.message || 'Could not make the Word file.'); }
+  }));
   const copy = root.querySelector('.copy-guide');
-  if (copy) copy.addEventListener('click', () => navigator.clipboard.writeText(r.guide || guideFrom(r)).then(() => toast('Study guide copied'), () => toast('Could not copy')));
+  if (copy) copy.addEventListener('click', () => navigator.clipboard.writeText(reviewerDoc(r)).then(() => toast('Study guide copied'), () => toast('Could not copy')));
   S.markPlan('read-' + r.id);
 }
 

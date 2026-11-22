@@ -23,7 +23,7 @@ school computer. **Teachers** can use the drawings in class.
 | | What it does |
 |---|---|
 | **Home** | A greeting in Filipino, your exam countdown, streak, cards learned, quiz score and points. **Today's plan, made by Cody** ticks itself off as you study. Shows the week's study time and your **class leaderboard**. |
-| **My reviewers** | Drop a PDF or photo, or paste notes. Cody writes the key terms in plain words, 3 practice questions, a 10-question quiz and flashcards. Each term has a **✎ Draw it** button. |
+| **My reviewers** | Drop a PDF or photo, or paste notes. Cody writes the key terms in plain words, 3 practice questions, a 10-question quiz and flashcards. Each term has a **✎ Draw it** button. **Save it as a PDF or a Word file** (.docx): the study guide, the quiz with an answer key, and the flashcards, ready to print or edit. |
 | **Draw with Cody** | Ask anything ("how does the water cycle work?"). Cody draws it part by part like a pen on a blackboard and highlights each step as it explains. Back, Pause and Next controls, plus **Voice** (read aloud). Save the drawing as a reviewer, or play it as a game. |
 | **Label it! game** | Drag each name onto its part of Cody's drawing. Faster answers and streaks of right answers (combos) earn more points. Works with a finger on a phone. |
 | **Quiz** | Multiple choice from your own notes. After every answer, **Why** shows the reason with the right part of the drawing highlighted. **Explain more** gives an everyday example. |

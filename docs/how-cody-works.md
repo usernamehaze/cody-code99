@@ -97,8 +97,12 @@ quiz with 3 choices or crashes on a missing field.
   `lib/safe.js` refuses explicit words and insults (English and Filipino). Words that sound like a student is
   at risk are never posted to the class; they open a private chat with the care message.
 
-### Making it a PDF (`js/pdf.js`)
+### Saving a reviewer as PDF or Word (`js/pdf.js`, `js/docx.js`, `js/mdblocks.js`)
+- Both files hold the study guide, then the quiz, an answer key and the flashcards (`reviewerDoc` in `js/views/reviewers.js`).
 - iPhones block websites from opening the print window, so Cody builds the PDF itself with **jsPDF**.
+- The Word file is made with no library: a `.docx` is a zip of a few XML files (the text, the styles, a footer
+  with page numbers). `js/docx.js` writes that XML and a small zip. Word, Google Docs, Pages and WPS open it.
+- The PDF's fonts only know Western letters, so a reviewer in Chinese, Japanese or Korean is saved as Word instead.
 
 ### Accounts, Premium and privacy (`api/account.js`, `js/account.js`, `js/theme.js`, `privacy.html`)
 - **Sign in with Google** sends the student to Google. Google sends back a signed *ID token*. The server checks

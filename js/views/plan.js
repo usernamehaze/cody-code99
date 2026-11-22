@@ -1,69 +1,122 @@
 import * as S from '../store.js';
-import { esc, header, toast, askSure, plural, busy as spinBusy } from '../ui.js';
+import { esc, header, toast, askSure, busy as spinBusy } from '../ui.js';
 import * as Class from '../classroom.js';
-import { emptyState, mascot } from '../mascot.js';
+import { mascot } from '../mascot.js';
 import * as Acc from '../account.js';
 import { LANGS } from '../ai.js';
 import { ACCENTS, BACKS, apply as applyTheme } from '../theme.js';
-import { ICON, busy } from '../ui.js';
+import { busy } from '../ui.js';
 
-const DAY = 864e5;
-const nice = (t) => new Date(t).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' });
+// ---------- Me: like Cassie's "You" page ----------
+// Who you are and three numbers on top, then a list of settings; each row opens its own page (#/plan/<page>).
+// Sign out, then Delete account in red, at the end. (The day-by-day study plan is gone from here: Home's
+// "Today's plan" still uses the exam date set in Study.)
+const LEVEL = { elem: 'Elementary', jhs: 'Junior High', shs: 'Senior High', college: 'College / University', board: 'Reviewing for a board exam', teach: 'Teacher or parent' };
+const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const IC = {
+  account: svg('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>'),
+  study: svg('<path d="M2 9l10-5 10 5-10 5zM6 11v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/>'),
+  language: svg('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.5 5.2 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.2-3.5-8.5s1.1-6.1 3.5-8.5z"/>'),
+  appearance: svg('<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/>'),
+  class: svg('<circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9.5" r="2.6"/><path d="M3 20c.8-3.5 3.2-5.5 6-5.5s5.2 2 6 5.5M15 15c2.6 0 4.4 1.6 5 4.5"/>'),
+  privacy: svg('<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'),
+  premium: svg('<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/>'),
+  help: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.3 2-2.3 3.5M12 17.2v.1"/>'),
+  doc: svg('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>'),
+};
+const CHEV = '<svg class="set-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+const row = (go, title, sub, val = '', ext = false) => `<a class="set-link" href="${ext ? go : '#/plan/' + go}"${ext ? ' target="_blank" rel="noopener"' : ''}><span class="set-ico">${IC[ext ? 'doc' : go] || IC.doc}</span><span class="set-lt"><b>${title}</b><small>${sub}</small></span>${val ? `<span class="set-val">${esc(val)}</span>` : ''}${CHEV}</a>`;
+const PAGES = { account: 'Account', study: 'Study', language: 'Language', appearance: 'Appearance', class: 'Your class', privacy: 'Privacy and data', premium: 'Premium', help: 'Help' };
 
-// a day-by-day plan up to the exam: new reviewers first, a different topic each day, the weak topic twice,
-// and a last-day review of everything
-function schedule() {
-  const s = S.get(), d = S.daysToExam();
-  const revs = [...s.reviewers].sort((a, b) => (s.quiz[a.id] ? s.quiz[a.id].last : 0) - (s.quiz[b.id] ? s.quiz[b.id].last : 0));
-  if (d == null || !revs.length) return [];
-  const days = Math.min(d, 21), out = [];
-  for (let k = 0; k <= days; k++) {
-    const t = Date.now() + k * DAY;
-    if (k === days && days > 0) { out.push({ t, items: ['Light review: flashcards due', 'One quiz on each topic', 'Sleep early. You are ready!'] }); continue; }
-    const r = revs[k % revs.length];
-    out.push({ t, today: k === 0, items: [`Read: ${r.title}`, `Flashcards due`, k % 2 ? `Label it! ${r.title}` : `Draw with Cody: ${r.title}`, `Quiz: ${r.title}`] });
-  }
-  return out;
+export function render(root, page) {
+  const s = S.get();
+  if (page && PAGES[page]) return renderPage(root, page);
+  const a = s.account, name = s.name || (a && a.name) || 'You';
+  const lang = (LANGS.find(([k]) => k === (s.lang || 'en')) || ['', 'English'])[1].replace(/ \(.*\)$/, '');
+  root.innerHTML = `
+    ${header('Me', '')}
+    <section class="set-page">
+      <div class="set-me">
+        ${a && a.picture ? `<img class="set-avatar" src="${esc(a.picture)}" alt="" referrerpolicy="no-referrer">` : `<span class="set-avatar" aria-hidden="true">${esc(name.slice(0, 1).toUpperCase())}</span>`}
+        <div class="set-who"><b>${esc(name)}</b><small>${esc([LEVEL[s.level], a ? a.email : 'Guest · not signed in'].filter(Boolean).join(' · '))}</small></div>
+        <a class="set-edit" href="#/plan/study">Edit</a>
+      </div>
+      <div class="set-stats">
+        <div><b>${S.streak()}</b><small>day streak</small></div>
+        <div><b>${S.learnedCount()}</b><small>cards learned</small></div>
+        <div><b>${(s.points || 0).toLocaleString()}</b><small>points</small></div>
+      </div>
+      ${!a ? `<a class="set-signin" href="#/plan/account">${mascot('think', 40)}<span><b>Save your progress</b><small>You’re a guest. Sign in so your work is kept on every device.</small></span>${CHEV}</a>` : ''}
+      <h3 class="set-you-h">Settings</h3>
+      <div class="set-group set-links">
+        ${row('account', 'Account', 'Sign in and back up', a ? 'Signed in' : 'Guest')}
+        ${row('study', 'Study', 'Your name, level and exam', S.daysToExam() != null ? `${S.daysToExam()} day${S.daysToExam() === 1 ? '' : 's'} to go` : '')}
+        ${row('language', 'Language', 'How Cody replies', lang)}
+        ${row('appearance', 'Appearance', 'Your colours (Premium)', Acc.premium() ? ((ACCENTS[(s.theme || {}).accent || 'teal'] || ['Teal'])[0]) : '')}
+        ${row('class', 'Your class', 'Study room and leaderboard', s.class ? s.class.name : '')}
+        ${row('privacy', 'Privacy', 'What is shared, and your data')}
+      </div>
+      <h3 class="set-you-h">More</h3>
+      <div class="set-group set-links">
+        ${row('premium', 'Premium', 'Free during Code 99', Acc.premium() ? 'On' : '')}
+        ${row('help', 'Help', 'How Cody works, and report a problem')}
+        ${row('/privacy.html', 'Privacy policy', 'What Cody keeps and why', '', true)}
+        ${row('/terms.html', 'Terms', 'The rules for using Cody', '', true)}
+      </div>
+      ${a ? `<div class="set-group set-links"><button type="button" class="set-link set-out sign-out"><span class="set-lt"><b>Sign out</b></span></button></div>
+        <div class="set-group set-links"><button type="button" class="set-link set-danger del-acct"><span class="set-lt"><b>Delete account</b></span></button></div>`
+        : `<div class="set-group set-links"><button type="button" class="set-link set-danger fresh"><span class="set-lt"><b>Clear this device</b><small>Remove everything you made as a guest</small></span></button></div>`}
+    </section>`;
+  wireAccount(root);
+  wireFresh(root);
 }
 
-export function render(root) {
+// one settings page, with a back arrow to Me
+function renderPage(root, page) {
   const s = S.get();
-  const plan = schedule();
-  root.innerHTML = `
-    ${header('Study plan', S.daysToExam() == null ? 'Set your exam date and Cody plans every day until then.' : `${S.daysToExam()} day${S.daysToExam() === 1 ? '' : 's'} to your ${s.exam.subject || ''} exam`)}
-    <section class="grid-2 grow">
-      <div class="card"><h2 class="eyebrow">Day by day</h2>
-        ${plan.length ? `<ol class="days">${plan.map((p) => `<li class="${p.today ? 'today' : ''}"><b>${p.today ? 'Today' : nice(p.t)}</b><ul>${p.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></li>`).join('')}</ol>`
-          : !s.reviewers.length ? emptyState({ mood: 'wave', title: 'Nothing to plan yet', text: 'Upload your notes first, then add your exam date. Cody plans every day until the exam.', actions: [{ label: 'Upload my notes', href: '#/reviewers?upload=1' }] })
-          : emptyState({ mood: 'think', title: 'When is your exam?', text: 'Add the date on the right and Cody plans every day until then.' })}
-      </div>
-      <div class="col">
-        <div class="card acct-card"><h2 class="eyebrow">Your account</h2>${accountCard(s)}</div>
-        <form class="card settings"><h2 class="eyebrow">You and your exam</h2>
-          <label>Your name<input name="name" value="${esc(s.name)}" maxlength="30" autocomplete="given-name"></label>
-          <label>Exam subject<input name="subject" value="${esc(s.exam.subject || '')}" maxlength="40"></label>
-          <label>Exam date<input type="date" name="date" value="${esc(s.exam.date || '')}"></label>
-          <label>Cody's language <small>for answers, reviewers, quizzes and drawings</small><select name="lang">${LANGS.map(([k, n]) => `<option value="${k}" ${(s.lang || 'en') === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
-          <button class="btn primary">Save my details</button>
-        </form>
-        <div class="card class-card"><h2 class="eyebrow">Your class</h2>${classCard(s)}<p class="class-signin muted" hidden>Study rooms are for signed-in students, so everyone in a class is a real classmate. Sign in above to join or make one.</p><p class="class-off muted" hidden>Classes aren’t switched on yet. Whoever runs this Cody site needs to connect the class database in Vercel: <b>Storage → Create Database → Upstash (free)</b>, connect it to the project, then redeploy.</p></div>
-        <div class="card prem-card"><h2 class="eyebrow">Premium</h2>${premiumCard(s)}</div>
-        <div class="card"><h2 class="eyebrow">Your data</h2>
-          <p class="muted">${s.account ? 'Everything you do in Cody is saved to your account, and only you can see it.' : 'Everything Cody keeps stays on this device. Sign in to save it to your account.'} Classmates never see your reviewers, chats or scores. In a study room they only see your name, your points and what you choose to post or share there.</p>
-          <div class="row"><button class="btn small fresh">Start fresh</button>${s.account ? '<button class="btn small ghost del-acct">Delete my account</button>' : ''}</div>
-          <p class="legal"><a class="link" href="/privacy.html">Privacy</a> · <a class="link" href="/terms.html">Terms</a></p>
-        </div>
-      </div>
-    </section>`;
-  wireClass(root);
-  // (classes need the class database on the server: say so before anyone types a code)
-  if (!s.class && !s.account) Acc.config().then((c) => { if (!c.google || !root.isConnected) return; const card = root.querySelector('.class-card'); if (!card) return; card.querySelectorAll('form, .err').forEach((f) => { f.hidden = true; }); card.querySelector('.class-signin').hidden = false; });
-  if (!s.class) Class.enabled().then((on) => { if (on || !root.isConnected) return; const c = root.querySelector('.class-card'); if (!c) return; c.querySelectorAll('form').forEach((f) => { f.hidden = true; }); c.querySelector('.class-off').hidden = false; });
+  const body = {
+    account: () => `<div class="card acct-card">${accountCard(s)}</div>`,
+    study: () => `<form class="card settings">
+        <label>Your name<input name="name" value="${esc(s.name)}" maxlength="30" autocomplete="given-name"></label>
+        <label>Where you are in school<select name="level"><option value="">Choose…</option>${Object.entries(LEVEL).map(([k, n]) => `<option value="${k}" ${s.level === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+        <label>Next exam: subject<input name="subject" value="${esc(s.exam.subject || '')}" maxlength="40" placeholder="e.g. Biology"></label>
+        <label>Next exam: date <small>Home counts down and plans each day</small><input type="date" name="date" value="${esc(s.exam.date || '')}"></label>
+        <button class="btn primary">Save</button>
+      </form>`,
+    language: () => `<form class="card settings lang-form">
+        <label>Cody answers in <small>Chats, reviewers, quizzes and drawings. The screens stay in English.</small><select name="lang">${LANGS.map(([k, n]) => `<option value="${k}" ${(s.lang || 'en') === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+        <button class="btn primary">Save</button>
+      </form>`,
+    appearance: () => `<div class="card prem-card">${premiumCard(s)}</div>`,
+    premium: () => `<div class="card prem-card">${premiumCard(s)}</div>`,
+    class: () => `<div class="card class-card">${classCard(s)}<p class="class-signin muted" hidden>Study rooms are for signed-in students, so everyone in a class is a real classmate. <a class="link" href="#/plan/account">Sign in</a> to join or make one.</p><p class="class-off muted" hidden>Classes aren’t switched on yet. Whoever runs this Cody site needs to connect the class database in Vercel: <b>Storage → Create Database → Upstash (free)</b>, connect it to the project, then redeploy.</p></div>`,
+    privacy: () => `<div class="card"><h2 class="eyebrow">Only you can see your things</h2>
+        <p>${s.account ? 'Everything you do in Cody is saved to your account, and only you can see it.' : 'You’re a guest, so everything stays on this device. Sign in to save it to your account.'}</p>
+        <p class="muted">Classmates never see your reviewers, chats or scores. In a study room they only see your name, your points and what you choose to post or share there. Signing out takes everything off this device, so a shared phone never shows your work.</p>
+        <p class="legal"><a class="link" href="/privacy.html">Read the privacy policy</a> · <a class="link" href="/terms.html">Terms</a></p></div>
+      <div class="card"><h2 class="eyebrow">Your data</h2>
+        <div class="row">${s.account ? '<button class="btn small ghost del-acct">Delete my account</button>' : '<button class="btn small fresh">Clear this device</button>'}</div></div>`,
+    help: () => `<div class="card"><h2 class="eyebrow">How Cody works</h2>
+        <ol class="help-steps"><li><b>Upload your notes</b> (a PDF, a photo, or pasted text) in Reviewers.</li><li>Cody makes a <b>reviewer</b>: a study guide, a quiz with an answer key, flashcards and key terms. Read it in Cody or save it as PDF or Word.</li><li><b>Quiz</b>, <b>flashcards</b> and <b>Label it!</b> help you remember it. Flashcards come back right before you'd forget.</li><li>Stuck? Tap the <b>Cody bubble</b> on any screen, or open <b>Ask Cody</b>.</li><li>Study with friends in a <b>study room</b>: draw on one board, chat and share reviewers.</li></ol></div>
+      <div class="card"><h2 class="eyebrow">Something not working?</h2><p class="muted">Tell us what happened and on which screen.</p><a class="btn small" href="https://github.com/usernamehaze/cody-code99/issues" target="_blank" rel="noopener">Report a problem</a></div>`,
+  }[page]();
+  root.innerHTML = `<a class="back-link" href="#/plan">‹ Me</a>${header(PAGES[page], '')}<section class="set-sub">${body}</section>`;
   const f = root.querySelector('.settings');
-  f.addEventListener('submit', (e) => { e.preventDefault(); s.name = f.name.value.trim(); s.exam = { subject: f.subject.value.trim(), date: f.date.value }; s.lang = f.lang.value; S.save(); toast('Saved. Cody updated your plan.'); render(root); });
+  if (f && page === 'study') f.addEventListener('submit', (e) => { e.preventDefault(); s.name = f.name.value.trim(); s.level = f.level.value || undefined; s.exam = { subject: f.subject.value.trim(), date: f.date.value }; S.save(); toast('Saved'); location.hash = '#/plan'; });
+  if (f && page === 'language') f.addEventListener('submit', (e) => { e.preventDefault(); s.lang = f.lang.value; S.save(); toast('Saved. Cody will answer in ' + f.lang.selectedOptions[0].textContent.replace(/ \(.*\)$/, '')); location.hash = '#/plan'; });
+  if (page === 'class') {
+    wireClass(root);
+    // (classes need the class database on the server, and sign-in when it's on: say so before anyone types a code)
+    if (!s.class && !s.account) Acc.config().then((c) => { if (!c.google || !root.isConnected) return; const card = root.querySelector('.class-card'); if (!card) return; card.querySelectorAll('form, .err').forEach((x) => { x.hidden = true; }); card.querySelector('.class-signin').hidden = false; });
+    if (!s.class) Class.enabled().then((on) => { if (on || !root.isConnected) return; const c = root.querySelector('.class-card'); if (!c) return; c.querySelectorAll('form').forEach((x) => { x.hidden = true; }); c.querySelector('.class-off').hidden = false; });
+  }
   wireAccount(root);
-  root.querySelector('.fresh').addEventListener('click', async () => {
-    if (await askSure({ title: 'Start fresh?', body: "Your points, streak, chats and the reviewers you made will be cleared from this device. This can't be undone.", action: 'Clear and start fresh' })) { S.reset(); location.hash = '#/plan'; render(root); }
+  wireFresh(root);
+}
+function wireFresh(root) {
+  const b = root.querySelector('.fresh');
+  if (b) b.addEventListener('click', async () => {
+    if (await askSure({ title: 'Clear this device?', body: "Your points, streak, chats and the reviewers you made will be cleared from this device. This can't be undone.", action: 'Clear everything' })) { S.reset(); location.hash = '#/plan'; render(root); }
   });
 }
 
@@ -78,8 +131,8 @@ function classCard(s) {
 }
 function wireClass(root) {
   const card = root.querySelector('.class-card'), err = card.querySelector('.err');
-  const busy = async (fn) => { card.querySelectorAll('button').forEach((b) => { b.disabled = true; }); if (err) err.textContent = ''; try { await fn(); render(root); } catch (e) { if (err) err.textContent = e.message; card.querySelectorAll('button').forEach((b) => { b.disabled = false; }); } };
-  const need = () => { if (!S.get().name) throw new Error('Add your name above first, so classmates know it is you.'); };
+  const busy = async (fn) => { card.querySelectorAll('button').forEach((b) => { b.disabled = true; }); if (err) err.textContent = ''; try { await fn(); render(root, 'class'); } catch (e) { if (err) err.textContent = e.message; card.querySelectorAll('button').forEach((b) => { b.disabled = false; }); } };
+  const need = () => { if (!S.get().name) throw new Error('Add your name first (Me → Study), so classmates know it is you.'); };
   const join = card.querySelector('.join'), make = card.querySelector('.make');
   if (join) join.addEventListener('submit', (e) => { e.preventDefault(); spinBusy(join.querySelector('button'), 'Joining…', () => busy(async () => { need(); const c = await Class.join(join.code.value); toast(`You joined ${c.name}!`); })); });
   if (make) make.addEventListener('submit', (e) => { e.preventDefault(); spinBusy(make.querySelector('button'), 'Making the class…', () => busy(async () => { need(); const c = await Class.create(make.cname.value); toast(`Class made. Share the code ${c.code}`); })); });
@@ -108,7 +161,7 @@ const GOOGLE = '<svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="tru
 function premiumCard(s) {
   const on = Acc.premium(), t = s.theme || {};
   const intro = `<ul class="prem-list"><li><b>Make it yours:</b> your own colours for Cody.</li><li><b>Reviewer mastery:</b> how well you know each reviewer, and what to study next.</li></ul>`;
-  if (!s.account) return `${intro}<p class="muted">Free during Code 99. Sign in above to unlock it.</p>`;
+  if (!s.account) return `${intro}<p class="muted">Free during Code 99. <a class="link" href="#/plan/account">Sign in</a> to unlock it.</p>`;
   if (!on) return `${intro}<p class="muted">Free during Code 99. No payment needed.</p><button class="btn primary get-prem">${mascot('cheer', 22)} Unlock Premium</button>`;
   return `<p class="prem-on">${mascot('cheer', 26)} Premium is on. Thanks for trying Cody!</p>
     <h3 class="sub-h">Make it yours</h3>
@@ -136,7 +189,7 @@ function wireAccount(root) {
     busy(del, 'Deleting…', async () => { try { await Acc.deleteAccount(); applyTheme(null); location.hash = '#/'; location.reload(); } catch (e) { toast(e.message); } });
   });
   const get = root.querySelector('.get-prem');
-  if (get) get.addEventListener('click', () => busy(get, 'Unlocking…', async () => { try { await Acc.unlockPremium(); toast('Premium is on!'); render(root); } catch (e) { toast(e.message); } }));
+  if (get) get.addEventListener('click', () => busy(get, 'Unlocking…', async () => { try { await Acc.unlockPremium(); toast('Premium is on!'); render(root, currentPage()); } catch (e) { toast(e.message); } }));
   // Make it yours: preview live, save or cancel
   let draft = { ...(s.theme || {}) };
   const acts = root.querySelector('.theme-actions');
@@ -147,9 +200,11 @@ function wireAccount(root) {
     applyTheme(draft); if (acts) acts.hidden = false;
   }));
   const cancel = root.querySelector('.cancel-theme'), saveT = root.querySelector('.save-theme');
-  if (cancel) cancel.addEventListener('click', () => { applyTheme(s.theme); render(root); });
-  if (saveT) saveT.addEventListener('click', () => { s.theme = draft; S.save(); toast('Your colours are saved'); render(root); });
+  if (cancel) cancel.addEventListener('click', () => { applyTheme(s.theme); render(root, currentPage()); });
+  if (saveT) saveT.addEventListener('click', () => { s.theme = draft; S.save(); toast('Your colours are saved'); render(root, currentPage()); });
   // leaving without saving puts the saved colours back
-  const back = () => { if (location.hash !== '#/plan') { applyTheme(Acc.premium() ? S.get().theme : null); window.removeEventListener('hashchange', back); } };
+  const back = () => { if (!/^#\/plan\/(appearance|premium)/.test(location.hash)) { applyTheme(Acc.premium() ? S.get().theme : null); window.removeEventListener('hashchange', back); } };
   window.addEventListener('hashchange', back);
 }
+
+const currentPage = () => (location.hash.match(/^#\/plan\/(\w+)/) || [])[1];

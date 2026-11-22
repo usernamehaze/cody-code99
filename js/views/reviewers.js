@@ -263,7 +263,7 @@ export function renderGuide(root, id) {
 
 // Reviewer mastery (Premium): a ring with the score, what it's made of, and the next step
 function masteryCard(r) {
-  if (!premium()) return `<p class="muted">See how well you know this reviewer, from your quiz, flashcards and Label it! results, and what to study next.</p><a class="btn small" href="#/plan">Unlock with Premium (free during Code 99)</a>`;
+  if (!premium()) return `<p class="muted">See how well you know this reviewer, from your quiz, flashcards and Label it! results, and what to study next.</p><a class="btn small" href="#/plan/premium">Unlock with Premium (free during Code 99)</a>`;
   const m = S.mastery(r.id), C = 2 * Math.PI * 34;
   return `<div class="mastery"><svg viewBox="0 0 80 80" width="96" height="96" role="img" aria-label="${m.pct}% mastered"><circle cx="40" cy="40" r="34" fill="none" stroke="var(--line-2)" stroke-width="8"/><circle cx="40" cy="40" r="34" fill="none" stroke="var(--teal)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${(C * m.pct) / 100} ${C}" transform="rotate(-90 40 40)"/><text x="40" y="45" text-anchor="middle" class="m-pct">${m.pct}%</text></svg>
     <div><b class="m-level">${m.level}</b><ul class="m-parts"><li>Quiz best: <b>${r.quiz.length ? m.quiz + '%' : '–'}</b></li><li>Cards learned: <b>${m.cards ? m.learned + '%' : '–'}</b></li>${m.label == null ? '' : `<li>Label it!: <b>${m.label >= 1 ? 'done' : m.label > 0 ? 'played once' : 'not yet'}</b></li>`}</ul></div></div>

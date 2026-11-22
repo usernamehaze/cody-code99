@@ -21,7 +21,7 @@ const b64 = (blob) => new Promise((ok, fail) => { const r = new FileReader(); r.
 export function render(root) {
   const s = S.get();
   if (!s.class) {
-    root.innerHTML = `${header('Class room', '')}<section class="card">${emptyState({ mood: 'wave', title: 'Study together in a class room', text: 'Draw on one board, chat, send voice messages, ask Cody for everyone and share reviewers. Make a class or join one with its code first.', actions: [{ label: 'Join or make a class', href: '#/plan' }] })}</section>`;
+    root.innerHTML = `${header('Class room', '')}<section class="card">${emptyState({ mood: 'wave', title: 'Study together in a class room', text: 'Draw on one board, chat, send voice messages, ask Cody for everyone and share reviewers. Make a class or join one with its code first.', actions: [{ label: 'Join or make a class', href: '#/plan/class' }] })}</section>`;
     return undefined;
   }
   const ops = new Map(); // idx -> op

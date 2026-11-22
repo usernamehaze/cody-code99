@@ -1,5 +1,34 @@
 /* Reads the study guide's Markdown into blocks (headings, paragraphs, lists, tables, quotes, dividers, code)
    and runs of bold and italic text. Shared by the PDF and the Word file makers. */
+// Tables the AI wrote loosely, put right before they're read: a long cell that wrapped onto the next line is
+// joined back to its row, blank lines inside a table are dropped, and the |---| line goes under the first row
+// (added if it's missing). Without this, a wrapped row breaks the table into stray "| a | b |" text.
+const PIPE = /^\s*\|/, SEP = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+export function tidyTables(src) {
+  const lines = String(src || '').replace(/\r/g, '').split('\n'), out = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!PIPE.test(lines[i]) || /^```/.test(lines[i])) { out.push(lines[i]); continue; }
+    const rows = [];
+    while (i < lines.length) {
+      let row = lines[i].trim();
+      // a row that doesn't end in | carried on to the next line(s): join it back (up to 6 lines)
+      for (let k = 0; !row.endsWith('|') && k < 6 && i + 1 < lines.length && lines[i + 1].trim() && !PIPE.test(lines[i + 1]) && !/^(#|>|```)/.test(lines[i + 1].trim()); k++) row += ' ' + lines[++i].trim();
+      if (!row.endsWith('|')) row += ' |';
+      rows.push(row);
+      // the next row may come after a blank line
+      let j = i + 1; while (j < lines.length && !lines[j].trim() && j - i < 3) j++;
+      if (j < lines.length && PIPE.test(lines[j])) { i = j; continue; }
+      break;
+    }
+    const body = rows.filter((r) => !SEP.test(r));
+    if (body.length < 2 && rows.length === body.length) { out.push(...rows); continue; } // (one lone | line: leave it as text)
+    if (!body.length) continue;
+    const n = Math.max(...body.map((r) => r.replace(/^\||\|$/g, '').split('|').length));
+    out.push(body[0], '|' + ' --- |'.repeat(n), ...body.slice(1));
+  }
+  return out.join('\n');
+}
+
 // "a **b** *c*" -> [{t:'a ', s:'normal'}, {t:'b', s:'bold'}, {t:' ', s:'normal'}, {t:'c', s:'italic'}]
 export function runs(text, clean = (x) => String(x)) {
   const out = []; const re = /\*\*([^*]+)\*\*|\*([^*\s][^*]*?)\*|`([^`]+)`/g; let last = 0, m;
@@ -9,7 +38,7 @@ export function runs(text, clean = (x) => String(x)) {
   return out;
 }
 export function blocks(src) {
-  const lines = String(src || '').replace(/\r/g, '').split('\n'), out = [];
+  const lines = tidyTables(src).replace(/\r/g, '').split('\n'), out = [];
   const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];

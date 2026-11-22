@@ -2,6 +2,7 @@
    these come back: # headings, **bold**, *italics*, `code`, code blocks, bulleted and numbered lists,
    tables (| a | b |), > quotes and --- dividers. */
 import { esc } from './ui.js';
+import { tidyTables } from './mdblocks.js';
 
 const inline = (t) => esc(t)
   .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -10,7 +11,7 @@ const inline = (t) => esc(t)
 const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
 
 export function md(src, { headings = 'h4' } = {}) {
-  const out = [], lines = String(src || '').replace(/\r/g, '').split('\n');
+  const out = [], lines = tidyTables(src).split('\n');
   let list = null, para = [];
   const flushPara = () => { if (para.length) { out.push(`<p>${para.map(inline).join('<br>')}</p>`); para = []; } };
   const flushList = () => { if (list) { out.push(`<${list.tag}>${list.items.map((i) => `<li>${inline(i)}</li>`).join('')}</${list.tag}>`); list = null; } };

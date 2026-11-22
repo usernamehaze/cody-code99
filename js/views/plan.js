@@ -26,7 +26,7 @@ const IC = {
 };
 const CHEV = '<svg class="set-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 const row = (go, title, sub, val = '', ext = false) => `<a class="set-link" href="${ext ? go : '#/plan/' + go}"${ext ? ' target="_blank" rel="noopener"' : ''}><span class="set-ico">${IC[ext ? 'doc' : go] || IC.doc}</span><span class="set-lt"><b>${title}</b><small>${sub}</small></span>${val ? `<span class="set-val">${esc(val)}</span>` : ''}${CHEV}</a>`;
-const PAGES = { account: 'Account', study: 'Study', language: 'Language', appearance: 'Appearance', class: 'Your class', privacy: 'Privacy and data', premium: 'Premium', help: 'Help' };
+const PAGES = { account: 'Account', study: 'Study', language: 'Language', appearance: 'Appearance', class: 'Study room', privacy: 'Privacy and data', premium: 'Premium', help: 'Help' };
 
 export function render(root, page) {
   const s = S.get();
@@ -53,7 +53,7 @@ export function render(root, page) {
         ${row('study', 'Study', 'Your name, level and exam', S.daysToExam() != null ? `${S.daysToExam()} day${S.daysToExam() === 1 ? '' : 's'} to go` : '')}
         ${row('language', 'Language', 'How Cody replies', lang)}
         ${row('appearance', 'Appearance', 'Your colours (Premium)', Acc.premium() ? ((ACCENTS[(s.theme || {}).accent || 'teal'] || ['Teal'])[0]) : '')}
-        ${row('class', 'Your class', 'Study room and leaderboard', s.class ? s.class.name : '')}
+        ${row('class', 'Study room', 'Join, make, leave, and the code', s.class ? s.class.name : '')}
         ${row('privacy', 'Privacy', 'What is shared, and your data')}
       </div>
       <h3 class="set-you-h">More</h3>
@@ -123,7 +123,7 @@ function wireFresh(root) {
 function classCard(s) {
   if (s.class) return `<p class="muted">You are in <b>${esc(s.class.name)}</b>. Classmates join with this code:</p>
     <p class="class-code">${esc(s.class.code)}</p>
-    <div class="row"><button class="btn small copy">Copy code</button><a class="btn small primary" href="#/room">Open the class room</a><button class="btn ghost small leave">Leave class</button></div>`;
+    <div class="row"><button class="btn small copy">Copy code</button><a class="btn small primary" href="#/room">Open the study room</a><button class="btn ghost small leave">Leave class</button></div>`;
   return `<p class="muted">Study with your real classmates. Your teacher (or one student) makes the class, then everyone joins with its code. Classmates see only your name, your points and what you share in the study room.</p>
     <form class="inline join"><input name="code" maxlength="6" placeholder="Class code" aria-label="Class code" autocomplete="off"><button class="btn">Join class</button></form>
     <form class="inline make" style="margin-top:10px"><input name="cname" maxlength="40" placeholder="New class name, e.g. Grade 9 Rizal" aria-label="New class name" style="text-transform:none"><button class="btn">Make a class</button></form>

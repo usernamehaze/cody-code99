@@ -20,16 +20,13 @@ const b64 = (blob) => new Promise((ok, fail) => { const r = new FileReader(); r.
 
 export function render(root) {
   const s = S.get();
-  if (!s.class) {
-    root.innerHTML = `${header('Class room', '')}<section class="card">${emptyState({ mood: 'wave', title: 'Study together in a class room', text: 'Draw on one board, chat, send voice messages, ask Cody for everyone and share reviewers. Make a class or join one with its code first.', actions: [{ label: 'Join or make a class', href: '#/plan/class' }] })}</section>`;
-    return undefined;
-  }
+  if (!s.class) return lobby(root);
   const ops = new Map(); // idx -> op
   let since = -1, base = 0, tick = 0, timer = null, alive = true, color = COLORS[1], thick = false, tab = 'chat', online = [];
   const pending = new Map(); // a stroke I drew, by its points, until the room gives it a number
 
   root.innerHTML = `
-    ${header(`Class room · ${s.class.name}`, `Code ${s.class.code} · share it so classmates can join`, `<div class="here" aria-live="polite"></div>`)}
+    ${header(`Study room · ${s.class.name}`, `Code ${s.class.code} · share it so classmates can join`, `<div class="here" aria-live="polite"></div><button type="button" class="btn small copy-code">Copy code</button><a class="btn small ghost" href="#/plan/class">Leave or switch</a>`)}
     <p class="room-off" hidden></p>
     <section class="room grow">
       <div class="card room-board">
@@ -60,6 +57,7 @@ export function render(root) {
         </form>
       </div>
     </section>`;
+  root.querySelector('.copy-code').addEventListener('click', () => navigator.clipboard.writeText(s.class.code).then(() => toast('Code copied: ' + s.class.code), () => toast('The code is ' + s.class.code)));
 
   const $ = (q) => root.querySelector(q);
   const log = $('.room-log'), canvas = $('canvas'), ctx2 = canvas.getContext('2d'), box = $('.room-compose textarea'), off = $('.room-off');
@@ -253,8 +251,8 @@ export function render(root) {
       if (r.online) { online = r.online; here(); }
     } catch (e) {
       fails++;
-      if (/not set up/i.test(e.message)) { off.hidden = false; off.textContent = 'Class rooms are not set up on this server yet. The team needs to connect Upstash Redis in Vercel.'; return; }
-      if (fails > 1) { off.hidden = false; off.textContent = 'Reconnecting to the class room…'; }
+      if (/not set up/i.test(e.message)) { off.hidden = false; off.textContent = 'Study rooms are not set up on this server yet. The team needs to connect Upstash Redis in Vercel.'; return; }
+      if (fails > 1) { off.hidden = false; off.textContent = 'Reconnecting to the study room…'; }
     }
     timer = setTimeout(poll, fails ? Math.min(15000, POLL_MS * 2 ** fails) : POLL_MS);
   }
@@ -263,4 +261,36 @@ export function render(root) {
   size(); chat(); shared(); shareMine(); here(); show('chat');
   poll();
   return () => { alive = false; clearTimeout(timer); window.removeEventListener('resize', size); if (rec) rec.stop(); if (playing) playing.pause(); };
+}
+
+// no room yet: join one with its code, or make one, right here (no hunting through Me)
+function lobby(root) {
+  const s = S.get();
+  root.innerHTML = `${header('Study rooms', 'Study together, each on your own phone or computer')}
+    <section class="lobby">
+      <div class="card lobby-hero">${mascot('cheer', 84)}<div><h2>Study with your classmates</h2>
+        <ul class="lobby-list"><li>Draw on one board together</li><li>Chat and send voice messages</li><li>Ask Cody once, everyone sees the answer</li><li>Share reviewers with the class</li></ul></div></div>
+      <p class="lobby-off card" hidden></p>
+      <form class="card lobby-form join">
+        <h2>Join a room</h2><p class="muted">Type the 6-letter code from your teacher or a classmate.</p>
+        ${s.name ? '' : '<label>Your name<input name="name" maxlength="30" autocomplete="given-name" required></label>'}
+        <div class="inline"><input name="code" maxlength="6" placeholder="Room code" aria-label="Room code" autocomplete="off" required><button class="btn primary">Join</button></div>
+      </form>
+      <form class="card lobby-form make">
+        <h2>Make a room</h2><p class="muted">For your class or a study group. You get a code to share.</p>
+        ${s.name ? '' : '<label>Your name<input name="name" maxlength="30" autocomplete="given-name" required></label>'}
+        <div class="inline"><input name="cname" maxlength="40" placeholder="Room name, e.g. Grade 9 Rizal" aria-label="Room name" style="text-transform:none" required><button class="btn">Make it</button></div>
+      </form>
+      <p class="err" aria-live="polite"></p>
+      <p class="muted small">Classmates only see your name, your points and what you post or share in the room. Your reviewers, chats and scores stay private.</p>
+    </section>`;
+  const err = root.querySelector('.err'), off = root.querySelector('.lobby-off');
+  const go = (form, label, fn) => form.addEventListener('submit', (e) => {
+    e.preventDefault(); err.textContent = '';
+    if (form.name && form.name.value.trim()) { S.get().name = form.name.value.trim(); S.save(); }
+    busy(form.querySelector('button'), label, async () => { try { await fn(form); render(root); } catch (x) { err.textContent = x.message; } });
+  });
+  go(root.querySelector('.join'), 'Joining…', async (f) => { const c = await Class.join(f.code.value); toast(`You joined ${c.name}!`); });
+  go(root.querySelector('.make'), 'Making the room…', async (f) => { const c = await Class.create(f.cname.value); toast(`Room made. Share the code ${c.code}`); });
+  Class.enabled().then((on) => { if (on || !root.isConnected) return; root.querySelectorAll('.lobby-form').forEach((f) => { f.hidden = true; }); off.hidden = false; off.textContent = 'Study rooms aren’t switched on yet on this Cody site. Whoever runs it connects the database in Vercel (Storage → Upstash), then redeploys.'; });
 }

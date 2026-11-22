@@ -21,9 +21,9 @@ import * as Welcome from './welcome.js';
 
 const NAV = [
   ['home', 'Home', '#/', ICON.home], ['chat', 'Ask Cody', '#/chat', ICON.chat], ['reviewers', 'My reviewers', '#/reviewers', ICON.file], ['draw', 'Draw with Cody', '#/draw', ICON.pencil],
-  ['quiz', 'Quiz', '#/quiz', ICON.quiz], ['flashcards', 'Flashcards', '#/flashcards', ICON.cards], ['label', 'Label it! game', '#/label', ICON.game], ['room', 'Class room', '#/room', ICON.users], ['plan', 'Me', '#/plan', ICON.me],
+  ['quiz', 'Quiz', '#/quiz', ICON.quiz], ['flashcards', 'Flashcards', '#/flashcards', ICON.cards], ['label', 'Label it! game', '#/label', ICON.game], ['room', 'Study rooms', '#/room', ICON.users], ['plan', 'Me', '#/plan', ICON.me],
 ];
-const TABS = [['home', 'Home', '#/', ICON.home], ['reviewers', 'Reviewers', '#/reviewers', ICON.file], ['chat', 'Ask', '#/chat', ICON.chat], ['label', 'Games', '#/label', ICON.game], ['plan', 'Me', '#/plan', ICON.me]];
+const TABS = [['home', 'Home', '#/', ICON.home], ['reviewers', 'Reviewers', '#/reviewers', ICON.file], ['chat', 'Ask', '#/chat', ICON.chat], ['room', 'Rooms', '#/room', ICON.users], ['label', 'Games', '#/label', ICON.game], ['plan', 'Me', '#/plan', ICON.me]];
 const SECTION = { reviewer: 'reviewers', guide: 'reviewers', import: 'reviewers' };
 
 const main = document.getElementById('main');

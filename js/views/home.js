@@ -18,6 +18,7 @@ export function render(root) {
   const studied = wk.some((x) => x.min > 0), quiz = S.weekQuizScore();
   root.innerHTML = `
     ${header(`${greeting()}${s.name ? ', ' + s.name : ''}!`, sub, `<a class="btn primary" href="#/reviewers?upload=1">+ Upload my notes</a>`)}
+    <a class="card room-cta" href="#/room">${ICON.users}<span><b>${s.class ? `Study room · ${esc(s.class.name)}` : 'Study rooms'}</b><small>${s.class ? 'Open it: draw, chat and share reviewers with your class' : 'Study with your classmates: join with a code, or make one'}</small></span><span class="room-cta-go">${s.class ? 'Open' : 'Join'}</span></a>
     <section class="stats">
       <div class="card stat"><span>Study streak</span><b>${S.streak()} day${S.streak() === 1 ? '' : 's'}</b></div>
       <div class="card stat"><span>Cards learned</span><b>${fmt(S.learnedCount())}</b></div>
@@ -41,8 +42,8 @@ export function render(root) {
           <div class="bar ${x.today ? 'today' : ''} ${x.future || !x.min ? 'low' : ''}"><i style="height:${Math.max(6, Math.round((x.min / max) * 100))}%" title="${x.min} min"></i><span>${x.name}</span></div>`).join('')}
         </div>
         <h2 class="eyebrow gap">${s.class ? `Class leaderboard · ${esc(s.class.name)}` : 'Class leaderboard'}</h2>
-        ${s.class ? `<a class="btn small room-link" href="#/room">${ICON.users} Open the class room</a>` : ''}
-        ${board.length ? '' : emptyState({ mood: 'happy', size: 72, title: 'No class yet', text: 'Make a class or join one with its code to see your classmates here.', actions: [{ label: 'Join or make a class', href: '#/plan/class', primary: false }] }).replace('class="empty-cm"', 'class="empty-cm sm"')}
+        
+        ${board.length ? '' : emptyState({ mood: 'happy', size: 72, title: 'No class yet', text: 'Make a class or join one with its code to see your classmates here.', actions: [{ label: 'Join or make a study room', href: '#/room', primary: false }] }).replace('class="empty-cm"', 'class="empty-cm sm"')}
         <ol class="leaders">${board.map((p, i) => `
           <li class="${p.me ? 'me' : ''}"><span class="rank">${i + 1}</span><span class="avatar">${esc((p.name || '?').slice(0, 2).toUpperCase())}</span><span class="who">${esc(p.name)}${p.me ? ' (you)' : ''}</span><b class="gold">${fmt(p.points)}</b></li>`).join('')}
         </ol>

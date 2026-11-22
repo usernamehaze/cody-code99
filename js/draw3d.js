@@ -141,7 +141,8 @@ function build({ T, OrbitControls }, stage, spec, opts) {
   const box = new T.Box3().setFromObject(model), size = box.getSize(new T.Vector3()), mid = box.getCenter(new T.Vector3());
   model.position.sub(mid); model.updateMatrixWorld(true);
   const R = Math.max(size.x, size.y, size.z, 1);
-  const VIEW = new T.Vector3(0.55, 0.38, 1.02).normalize();
+  // look at its long side: a model built lengthwise front to back is seen from the side, never end on
+  const VIEW = (size.z > size.x * 1.15 ? new T.Vector3(1.02, 0.38, 0.55) : new T.Vector3(0.55, 0.38, 1.02)).normalize();
   const fitBox = (bx, dir) => {
     const cs = []; for (const x of [bx.min.x, bx.max.x]) for (const y of [bx.min.y, bx.max.y]) for (const z of [bx.min.z, bx.max.z]) cs.push(new T.Vector3(x, y, z));
     const probe = cam.clone(), fits = (d) => { probe.position.copy(dir).multiplyScalar(d); probe.lookAt(0, 0, 0); probe.updateMatrixWorld(); probe.updateProjectionMatrix(); return cs.every((c) => { if (c.clone().applyMatrix4(probe.matrixWorldInverse).z > -probe.near * 4) return false; const q = c.clone().project(probe); return Math.abs(q.x) <= (labelsOn() ? (W() < 560 ? 0.62 : 0.5) : 0.78) && Math.abs(q.y) <= 0.8; }); };

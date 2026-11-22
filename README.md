@@ -24,7 +24,7 @@ school computer. **Teachers** can use the drawings in class.
 |---|---|
 | **Home** | A greeting in Filipino, your exam countdown, streak, cards learned, quiz score and points. **Today's plan, made by Cody** ticks itself off as you study. Shows the week's study time and your **class leaderboard**. |
 | **My reviewers** | Drop a PDF or photo, scan pages, or paste notes. Each reviewer opens as a short page: the **reviewer file** (Read, PDF, Word), study tools (Quiz, Flashcards, Label it!, Ask Cody), key terms and mastery. The long study guide opens on its own reading page, one folding section at a time, with a row of section chips to jump around. When Cody finishes writing it, Cody asks once: read it here, save it as PDF or Word, or skip to the quiz. Saved files hold the study guide, the quiz with an answer key, and the flashcards. |
-| **Draw with Cody** | Ask anything ("how does the water cycle work?"). Cody draws it part by part like a pen on a blackboard and highlights each step as it explains. Back, Pause and Next controls, plus **Voice** (read aloud). Save the drawing as a reviewer, or play it as a game. |
+| **Draw with Cody** | Ask anything ("how does the water cycle work?"). Cody draws it part by part like a pen on a blackboard and highlights each step as it explains. Back, Pause and Next controls, plus **Voice** (read aloud). Save the drawing as a reviewer, or play it as a game. Switch to **3D** for a real object ("a bicycle in 3D"): Cody builds a model you can turn, zoom, tap, open up and pull apart. |
 | **Label it! game** | Drag each name onto its part of Cody's drawing. Faster answers and streaks of right answers (combos) earn more points. Works with a finger on a phone. |
 | **Quiz** | Multiple choice from your own notes. After every answer, **Why** shows the reason with the right part of the drawing highlighted. **Explain more** gives an everyday example. |
 | **Flashcards** | Spaced repetition (Leitner boxes). Rate a card **Again**, **Almost** or **Got it**; missed cards come back sooner. The back of each card shows Cody's drawing with that part lit up. |
@@ -215,10 +215,13 @@ Every number on Home is the student's own, and each empty screen shows Cody and 
 - [pdf.js](https://mozilla.github.io/pdf.js/) by Mozilla, via cdnjs (Apache License 2.0), reads PDF text in the browser
 - [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (MIT)
 - [jsPDF](https://github.com/parallax/jsPDF) and [jsPDF-AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable) (MIT), shipped in `js/vendor/`, make study guides into PDF files
+- [three.js](https://threejs.org) r169 and its OrbitControls (MIT), shipped in `js/vendor/three/`, show the 3D models
 - AI providers: [Groq](https://groq.com), [Google Gemini](https://ai.google.dev), [Anthropic Claude](https://www.anthropic.com)
 - The logo, icons, the four sample drawings and every screen are original work by the team.
 - Cody shares its drawing-spec idea, Leitner flashcard schedule and provider fallback with
-  **Cassie**, the team's earlier study app ([usernamehaze/bot](https://github.com/usernamehaze/bot)); the Cody code is new.
+  **Cassie**, the team's earlier study app ([usernamehaze/bot](https://github.com/usernamehaze/bot)). The 3D model
+  viewer (`js/draw3d.js`), its checks (`lib/model3d.js`) and the extra flat-drawing checks are adapted from Cassie's
+  `livedraw.js`; the rest of the Cody code is new.
 
 ## AI use disclosure
 

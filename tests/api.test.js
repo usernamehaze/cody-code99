@@ -14,7 +14,7 @@ const reviewer = { title: 'The heart', subject: 'Biology', terms: [{ term: 'Atri
 const part = (id, x, y) => ({ id, label: id.toUpperCase(), anchor: [x, y], shapes: [
   { t: 'path', fill: true, d: `M ${x - 20} ${y} C ${x - 20} ${y - 18} ${x + 20} ${y - 18} ${x + 20} ${y} C ${x + 22} ${y + 14} ${x - 8} ${y + 20} ${x - 20} ${y} Z` },
   { t: 'path', sw: 1.5, d: `M ${x - 10} ${y} Q ${x} ${y - 6} ${x + 10} ${y}` }] });
-const drawing = { title: 'Heart', parts: [part('a', 50, 50), part('b', 300, 60), part('c', 200, 250)] };
+const drawing = { title: 'A leaf', parts: [part('a', 50, 50), part('b', 300, 60), part('c', 200, 250)] };
 
 test('checkReviewer keeps good answers and drops broken ones', () => {
   const r = checkReviewer(reviewer);
@@ -146,4 +146,45 @@ test('a dragon is the hand-drawn figure, and it passes the same check as an AI d
   const kept = clean(JSON.stringify(dragon));
   assert.equal(kept.solid, true); assert.equal(kept.parts.find((p) => p.id === 'legs').z, 5, 'stacking order survives clean()');
   assert.equal(kept.parts.reduce((n, p) => n + p.shapes.length, 0), dragon.parts.reduce((n, p) => n + p.shapes.length, 0), 'no shape is dropped');
+});
+
+test('from Cassie: a flat drawing missing a textbook part, or with an arrow the wrong way, is sent back once', () => {
+  const heart = { ...drawing, title: 'The human heart' };
+  const r = checkDrawing(heart, 0, 'the human heart');
+  assert.equal(r.ok, false); assert.match(r.why, /right atrium/);
+  assert.equal(checkDrawing(heart, 1, 'the human heart').ok, true, 'on the second try a small problem is let through');
+  const rain = { ...drawing, parts: [...drawing.parts, { id: 'rain', label: 'Rain', say: 'Rain falls from the cloud.', anchor: [300, 200], shapes: [{ t: 'arrow', d: 'M 300 240 C 300 220 300 200 300 160' }, { t: 'path', sw: 1.5, d: 'M 290 250 Q 300 244 310 250 Q 320 256 330 250' }] }] };
+  assert.match(checkDrawing(rain, 0, 'rain').why, /goes down, but its arrows point up/);
+});
+
+// a small 3D model: a torch (flashlight), planned and built the way the prompt asks
+const torch = { title: 'A torch', mode: '3d', axis: 'x', intro: 'A torch.', summary: 'Battery, bulb, case.', parts: [
+  { id: 'case', label: 'Case', color: '#94a3b8', finish: 'metal', shell: true, size: 1, inside: null, shapes: [{ t: 'cylinder', r: 0.6, len: 5.4, axis: 'x', pos: [0, 0, 0], open: true }] },
+  { id: 'battery', label: 'Battery', color: '#fbbf24', size: 0.5, inside: 'case', attached: ['bulb'], shapes: [{ t: 'capsule', r: 0.4, len: 2, axis: 'x', pos: [-0.8, 0, 0] }] },
+  { id: 'bulb', label: 'Bulb', color: '#fef3c7', glow: true, size: 0.15, inside: 'case', attached: ['battery'], shapes: [{ t: 'sphere', r: 0.35, pos: [1.0, 0, 0] }] },
+  { id: 'lens', label: 'Lens', color: '#e2e8f0', size: 0.2, attached: ['case'], shapes: [{ t: 'disc', r: 0.62, thick: 0.08, axis: 'x', pos: [2.72, 0, 0] }] },
+] };
+
+test('from Cassie: a 3D model is checked against its own plan', () => {
+  const r = checkDrawing(torch, 0, 'a torch');
+  assert.equal(r.ok, true, r.why); assert.equal(r.spec.mode, '3d'); assert.equal(r.spec.parts.length, 4);
+  const floating = { ...torch, parts: torch.parts.map((p) => (p.id === 'lens' ? { ...p, shapes: [{ ...p.shapes[0], pos: [5.5, 3, 0] }] } : p)) };
+  assert.match(checkDrawing(floating, 1, 'a torch').why, /floats apart/, 'a floating part is always sent back');
+  const big = { ...torch, parts: torch.parts.map((p) => (p.id === 'bulb' ? { ...p, size: 0.9 } : p)) };
+  assert.match(checkDrawing(big, 0, 'a torch').why, /your plan says 90%/);
+  assert.equal(checkDrawing(big, 1, 'a torch').ok, true);
+  const bike = { title: 'Bike', mode: '3d', axis: 'x', parts: [
+    { id: 'frame', label: 'Frame', size: 1, shapes: [{ t: 'pipe', pts: [[-2, 0, 0], [0, 1, 0], [2, 0, 0]], r: 0.05 }] },
+    { id: 'w1', label: 'Front wheel', size: 0.4, shapes: [{ t: 'torus', r: 1, tube: 0.08, axis: 'y', pos: [2, -0.5, 0] }] },
+    { id: 'w2', label: 'Back wheel', size: 0.4, shapes: [{ t: 'torus', r: 1, tube: 0.08, axis: 'z', pos: [-2, -0.5, 0] }] }] };
+  assert.match(checkDrawing(bike, 1, 'a bike').why, /Front wheel" lies flat/);
+});
+
+test('3D is used only when asked and only for real objects; a heart in 3D is drawn flat', async () => {
+  const { drawMode, drawPrompt } = await import('../lib/tasks.js');
+  assert.equal(drawMode('a jet engine', '3d'), '3d');
+  assert.equal(drawMode('a jet engine', '2d'), '2d');
+  assert.equal(drawMode('the human heart', '3d'), '2d');
+  assert.match(drawPrompt({ question: 'a bicycle', mode: '3d' }), /"mode":"3d"/);
+  assert.match(drawPrompt({ question: 'a bicycle' }), /realistic 2D illustration/);
 });

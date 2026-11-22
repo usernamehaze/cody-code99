@@ -7,7 +7,7 @@ import { say, emptyState } from '../mascot.js';
 const hideName = (say, label) => { const t = say.replace(new RegExp(`(the\\s+)?${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'ig'), 'this part'); return t.charAt(0).toUpperCase() + t.slice(1); };
 
 export function pick(root, kind, title, sub) { // a chooser, when no reviewer is picked yet
-  const list = S.get().reviewers.filter((r) => kind !== 'label' || (r.drawing && r.game && r.game.length));
+  const list = S.get().reviewers.filter((r) => kind !== 'label' || (r.drawing && r.drawing.mode !== '3d' && r.game && r.game.length)); // (Label it! plays on flat drawings)
   root.innerHTML = `${header(title, list.length ? sub : '')}
     ${list.length ? `<section class="pick">${list.map((r) => `<a class="card pick-item" href="#/${kind}/${esc(r.id)}"><b>${esc(r.title)}</b><span class="muted">${esc(r.subject || '')}${S.get().quiz[r.id] ? ` · best ${S.get().quiz[r.id].best}%` : ''}</span></a>`).join('')}</section>`
       : `<section class="card">${kind === 'label'
@@ -18,7 +18,7 @@ export function pick(root, kind, title, sub) { // a chooser, when no reviewer is
 export function render(root, id) {
   if (!id) return pick(root, 'label', 'Label it!', 'Pick a drawing. Drag each name to its part. Faster answers earn more points.');
   const rev = S.reviewer(id);
-  if (!rev || !rev.drawing) { location.hash = '#/label'; return; }
+  if (!rev || !rev.drawing || rev.drawing.mode === '3d') { location.hash = '#/label'; return; } // (Label it! plays on flat drawings)
   const parts = rev.drawing.parts;
   const ids = (rev.game && rev.game.length ? rev.game : parts.map((p) => p.id)).filter((x) => parts.some((p) => p.id === x && p.label)).slice(0, 6);
   const names = ids.map((x) => parts.find((p) => p.id === x)).sort(() => Math.random() - 0.5);

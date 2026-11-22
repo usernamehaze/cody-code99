@@ -8,6 +8,8 @@
    to its part's anchor. The same spec powers Draw with Cody, Label it!, the quiz's "Why" and card backs.
    (Adapted from Cassie's livedraw.js, made smaller: 2D only.) */
 
+import { mount3d, clean3d } from './draw3d.js';
+
 const NS = 'http://www.w3.org/2000/svg';
 const PALETTE = ['#60a5fa', '#f7687f', '#2dd4bf', '#fbbf24', '#a78bfa', '#4ade80', '#fb923c', '#e2e8f0'];
 const W = 400, H = 300;
@@ -40,6 +42,7 @@ export function clean(raw) {
   let s = raw;
   if (typeof s === 'string') { const a = s.indexOf('{'), b = s.lastIndexOf('}'); if (a < 0 || b <= a) return null; try { s = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; } }
   if (!s || typeof s !== 'object' || !Array.isArray(s.parts)) return null;
+  if (s.mode === '3d') return clean3d(s); // (a 3D model: see draw3d.js)
   const parts = s.parts.slice(0, 12).map((p, i) => {
     const shapes = (Array.isArray(p && p.shapes) ? p.shapes : []).slice(0, 28).map(cleanShape).filter(Boolean);
     const a = Array.isArray(p && p.anchor) && p.anchor.length === 2 ? [num(p.anchor[0], 0, W), num(p.anchor[1], 0, H)] : null;
@@ -89,6 +92,7 @@ function layoutLabels(items, top = 14, bottom = H - 14) {
    opts: numbered (label "1 Sun"), labels ('steps' shows each name as its part is drawn, 'all', 'none'),
          targets (ids that get a dashed drop spot, for Label it!), onStep(i), speed (ms per stroke) */
 export function mount(el, rawSpec, opts = {}) {
+  if (rawSpec && rawSpec.mode === '3d') return mount3d(el, rawSpec, opts); // (a 3D model, with the same controller)
   const spec = rawSpec && rawSpec.parts && rawSpec.parts[0] && rawSpec.parts[0].anchor ? rawSpec : clean(rawSpec);
   el.innerHTML = '';
   if (!spec) { el.textContent = 'Cody could not draw this one.'; return null; }

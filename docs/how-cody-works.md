@@ -81,7 +81,37 @@ quiz with 3 choices or crashes on a missing field.
   them drawn by hand. Asking for a dragon always gives the hand-drawn one (crocodile-like head, horns, S-curved
   neck, bat-like wings with finger bones, legs that bend like a cat's, a spade-tipped tail, spines), with no AI call.
 
-### Flashcards and spaced repetition (`js/store.js`, `js/views/cards.js`)
+### 3D models (`js/draw3d.js`, `lib/model3d.js`, adapted from Cassie's live drawing)
+- In Draw with Cody the student picks **Flat** or **3D** (or writes "in 3D"). The chat asks for 3D when the
+  student does.
+- 3D is for real objects (a bicycle, a jet engine, a torch). Soft and living things and processes (a heart, a
+  leaf, the water cycle) are always drawn flat: a model made of simple solids would look wrong. The app says so.
+- **The AI plans before it builds:** for each part, what it sits inside, what it touches, and how big it really is
+  against the whole object. It then builds the model from solids: cylinders, discs, cones, spheres, boxes, rings,
+  fan blades, capsules, pipes, arrows, **lathes** (a profile turned round an axis, for a nozzle or a wheel) and
+  **plates** (a flat cut shape).
+- **The server checks the model against that plan** (`problems3d()`): nothing floats, a part said to be inside
+  another fits inside it, each part is about its planned size, wheels stand upright on an axle, and fan or turbine
+  blades face along the airflow. A model with big problems is always sent back; one with small problems is kept on
+  the second try.
+- **The viewer** (three.js, loaded only when a model is shown):
+  - It builds the model part by part, with the same Play, Back and Next buttons as a flat drawing.
+  - Real materials (metal, plastic, rubber, wood) are lit like a studio, and the model casts a soft shadow.
+  - Drag to turn the model, pinch or scroll to zoom, and tap a part (or its name) to see what it does.
+  - **Open it up** shows what is inside the case, and **Pull apart** spreads the parts along the model.
+  - Parts marked "spin" turn on their own axle.
+  - Names stand in a column on each side, with a line to each part.
+- A 3D model can be saved as a reviewer (terms, cards, quiz). Label it! uses flat drawings only.
+- Without 3D graphics (no WebGL), the student gets the list of parts instead.
+
+### More checks on flat drawings (from Cassie)
+A flat drawing is sent back once when:
+- it leaves out a part a textbook figure shows (for example the heart's four chambers),
+- an arrow points the wrong way (rain going up, or evaporation going down),
+- a part's label points off the part, or
+- a real heart is drawn as a valentine symbol.
+
+ (`js/store.js`, `js/views/cards.js`)
 - Each card sits in a **Leitner box** (0 to 6). "Got it" moves it up a box; the next review is
   0, 1, 3, 7, 16, 35 or 70 days later. "Again" sends it back to box 0 (one minute). "Almost" keeps the box.
 - This is based on the **spacing effect**: reviewing just before you forget makes memories last longer.

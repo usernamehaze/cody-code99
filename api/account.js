@@ -15,24 +15,11 @@ import crypto from 'node:crypto';
 import { kv, kvMode } from '../lib/kv.js';
 import { limited } from '../lib/limit.js';
 import { cors } from '../lib/cors.js';
+import { makeSession, readSession, ownerId } from '../lib/session.js';
+export { makeSession, readSession };
 
 const env = (k) => (process.env[k] || '').trim();
-const DAYS = 60, MAX_DATA = 900000;
-const b64u = (buf) => Buffer.from(buf).toString('base64url');
-const secret = () => env('SESSION_SECRET') || crypto.createHash('sha256').update('cody|' + env('GOOGLE_CLIENT_ID') + '|' + (env('KV_REST_API_TOKEN') || env('UPSTASH_REDIS_REST_TOKEN') || Object.entries(process.env).filter(([k]) => /_KV_REST_API_TOKEN$/.test(k)).map(([, v]) => v)[0] || 'local')).digest('hex');
-const sign = (body) => crypto.createHmac('sha256', secret()).update(body).digest('base64url');
-
-export function makeSession(user) {
-  const body = b64u(JSON.stringify({ s: user.sub, e: user.email, n: user.name, x: Date.now() + DAYS * 864e5 }));
-  return `${body}.${sign(body)}`;
-}
-export function readSession(token) {
-  const [body, sig] = String(token || '').split('.');
-  if (!body || !sig) return null;
-  const want = sign(body);
-  if (sig.length !== want.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(want))) return null;
-  try { const u = JSON.parse(Buffer.from(body, 'base64url').toString()); return u.x > Date.now() && /^\d{5,30}$/.test(u.s) ? u : null; } catch (e) { return null; }
-}
+const MAX_DATA = 900000;
 
 // Google's public keys (they change now and then; kept an hour)
 let certs = { at: 0, keys: [] };
@@ -80,11 +67,11 @@ export default async function handler(req, res) {
       try { user = await verifyGoogle(b.idToken, b.nonce); } catch (e) { return res.status(401).json({ ok: false, error: 'Google sign-in didn’t go through. Please try again.' }); }
       await kv('HSET', key(user.sub), 'email', user.email, 'name', user.name, 'seen', Date.now());
       const saved = await loadFor(user.sub);
-      return res.status(200).json({ ok: true, session: makeSession(user), user: { name: user.name, email: user.email, picture: user.picture }, ...saved });
+      return res.status(200).json({ ok: true, session: makeSession(user), user: { name: user.name, email: user.email, picture: user.picture }, owner: ownerId(user.sub), ...saved });
     }
     const me = readSession(b.session);
     if (!me) return res.status(401).json({ ok: false, error: 'Please sign in again.', signedOut: true });
-    if (b.action === 'load') return res.status(200).json({ ok: true, ...(await loadFor(me.s)) });
+    if (b.action === 'load') return res.status(200).json({ ok: true, owner: ownerId(me.s), ...(await loadFor(me.s)) });
     if (b.action === 'save') {
       const text = JSON.stringify(b.data || {});
       if (text.length > MAX_DATA) return res.status(413).json({ ok: false, error: 'Your Cody is too big to back up. Delete a few old reviewers or chats.' });

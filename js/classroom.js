@@ -2,6 +2,7 @@
    student's points on the board. The last board seen is saved, so Home shows it at once (and offline). */
 import * as S from './store.js';
 import { API } from './ai.js';
+const session = () => (S.get().account || {}).session;
 
 async function call(body) {
   let r; try { r = await fetch(API + '/api/class', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); }
@@ -16,11 +17,11 @@ const me = () => ({ id: myId(), name: S.get().name || 'Student', points: S.get()
 export async function enabled() { try { const r = await fetch(API + '/api/class'); const j = await r.json(); return !!j.enabled; } catch (e) { return false; } }
 
 export async function join(code) {
-  const j = await call({ action: 'join', code: String(code).trim().toUpperCase(), ...me() });
+  const j = await call({ action: 'join', code: String(code).trim().toUpperCase(), session: session(), ...me() });
   const s = S.get(); s.class = { code: j.code, name: j.className, board: j.board, synced: s.points, at: Date.now() }; S.save();
   return s.class;
 }
-export async function create(className) { const j = await call({ action: 'create', className }); return join(j.code); }
+export async function create(className) { const j = await call({ action: 'create', className, session: session() }); return join(j.code); }
 export async function leave() {
   const s = S.get(); if (!s.class) return;
   try { await call({ action: 'leave', code: s.class.code, id: myId() }); } catch (e) { /* leave on this device anyway */ }
@@ -51,4 +52,4 @@ export function watch() {
 export const post = (op) => call({ action: 'post', code: S.get().class.code, id: myId(), op });
 export const poll = (since, base, here) => call({ action: 'poll', code: S.get().class.code, id: myId(), since, base, here });
 export const sendVoice = (audio, type, secs) => call({ action: 'voice', code: S.get().class.code, id: myId(), audio, type, secs });
-export const getAudio = (vid) => call({ action: 'audio', code: S.get().class.code, vid });
+export const getAudio = (vid) => call({ action: 'audio', code: S.get().class.code, id: myId(), vid });

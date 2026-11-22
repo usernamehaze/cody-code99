@@ -73,6 +73,30 @@ export async function busy(btn, words, work) {
    The title names the thing, the text says what goes and whether it comes back, Cancel has focus
    (so Enter on autopilot keeps things), and the action is red and says what it does.
    askSure({ title, body, action, danger = true }) -> Promise<boolean> */
+// a question with a few answers, as a sheet (like askSure): resolves with the picked value, or null for Not now
+export function choose({ title, body = '', options, art = '', later = 'Not now' }) {
+  return new Promise((done) => {
+    const back = document.createElement('div');
+    back.className = 'sure-back';
+    back.innerHTML = `<div class="sure-sheet choose-sheet" role="dialog" aria-modal="true" aria-labelledby="ch-t">
+      ${art ? `<div class="ch-art" aria-hidden="true">${art}</div>` : ''}<h2 id="ch-t">${esc(title)}</h2>${body ? `<p>${esc(body)}</p>` : ''}
+      <div class="ch-list">${options.map((o, i) => `<button type="button" class="ch-opt${o.primary ? ' primary' : ''}" data-i="${i}">${o.icon || ''}<span><b>${esc(o.label)}</b>${o.sub ? `<small>${esc(o.sub)}</small>` : ''}</span></button>`).join('')}</div>
+      <button type="button" class="btn ghost ch-later">${esc(later)}</button></div>`;
+    const before = document.activeElement;
+    const close = (v) => { document.removeEventListener('keydown', keys, true); back.remove(); if (before && before.focus) before.focus({ preventScroll: true }); done(v); };
+    const keys = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); close(null); }
+      if (e.key === 'Tab') { const f = [...back.querySelectorAll('button')]; const i = f.indexOf(document.activeElement); e.preventDefault(); f[(i + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus(); }
+    };
+    back.addEventListener('click', (e) => { if (e.target === back) close(null); });
+    back.querySelectorAll('.ch-opt').forEach((b) => b.addEventListener('click', () => close(options[+b.dataset.i].value)));
+    back.querySelector('.ch-later').addEventListener('click', () => close(null));
+    document.addEventListener('keydown', keys, true);
+    document.body.appendChild(back);
+    back.querySelector('.ch-opt').focus();
+  });
+}
+
 export function askSure({ title, body = '', action, danger = true }) {
   return new Promise((done) => {
     const back = document.createElement('div');

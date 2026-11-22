@@ -17,13 +17,14 @@ import { apply as applyTheme } from './theme.js';
 import * as Bubble from './bubble.js';
 import { toast } from './ui.js';
 import * as Class from './classroom.js';
+import * as Welcome from './welcome.js';
 
 const NAV = [
   ['home', 'Home', '#/', ICON.home], ['chat', 'Ask Cody', '#/chat', ICON.chat], ['reviewers', 'My reviewers', '#/reviewers', ICON.file], ['draw', 'Draw with Cody', '#/draw', ICON.pencil],
   ['quiz', 'Quiz', '#/quiz', ICON.quiz], ['flashcards', 'Flashcards', '#/flashcards', ICON.cards], ['label', 'Label it! game', '#/label', ICON.game], ['room', 'Class room', '#/room', ICON.users], ['plan', 'Study plan', '#/plan', ICON.plan],
 ];
 const TABS = [['home', 'Home', '#/', ICON.home], ['reviewers', 'Reviewers', '#/reviewers', ICON.file], ['chat', 'Ask', '#/chat', ICON.chat], ['label', 'Games', '#/label', ICON.game], ['plan', 'Me', '#/plan', ICON.me]];
-const SECTION = { reviewer: 'reviewers', import: 'reviewers' };
+const SECTION = { reviewer: 'reviewers', guide: 'reviewers', import: 'reviewers' };
 
 const main = document.getElementById('main');
 let cleanup = null;
@@ -57,11 +58,15 @@ function route() {
   document.querySelectorAll('[data-k]').forEach((a) => a.classList.toggle('on', a.dataset.k === k));
   main.className = 'main page-' + k;
   const views = {
-    home: () => home.render(main), reviewers: () => reviewers.renderList(main, params), reviewer: () => reviewers.renderOne(main, id),
+    home: () => home.render(main), reviewers: () => reviewers.renderList(main, params), reviewer: () => reviewers.renderOne(main, id), guide: () => reviewers.renderGuide(main, id),
     draw: () => draw.render(main, id, params), quiz: () => quiz.render(main, id), flashcards: () => cards.render(main, id),
     label: () => label.render(main, id), chat: () => chat.render(main, id, params), room: () => room.render(main), plan: () => plan.render(main), import: () => importer.render(main, params),
   };
   cleanup = (views[name || 'home'] || views.home)() || null;
+  if (k === 'home' && S.get().guest && !Acc.me()) {
+    main.insertAdjacentHTML('afterbegin', `<div class="guest-bar" role="note">${Mascot.mascot('think', 34)}<p><b>You’re trying Cody without an account.</b> Your work is only on this device. Sign in to save your progress.</p><button type="button" class="btn small guest-signin">Sign in</button></div>`);
+    const g = main.querySelector('.guest-signin'); g.addEventListener('click', () => Acc.signIn().catch((e) => toast(e.message)));
+  }
   streakCard();
   main.focus({ preventScroll: true });
   window.scrollTo(0, 0);
@@ -74,12 +79,16 @@ S.onChange(streakCard);
 Class.watch();
 Bubble.mount();
 // coming back from Google's sign-in page: finish it before showing any screen
+// then, if nobody is signed in: onboarding and the sign-in screen, before any of Cody shows
 Acc.finishSignIn().then((done) => {
   if (done && done.ok) toast(`Signed in. Welcome${done.name ? ', ' + done.name : ''}!`);
-  if (done && done.error) toast(done.error);
   if (Acc.premium()) applyTheme(S.get().theme);
   Acc.watch();
-  window.addEventListener('hashchange', () => { route(); Bubble.update(); });
-  route(); Bubble.update();
+  const start = () => {
+    window.addEventListener('hashchange', () => { if (!document.body.classList.contains('gated')) { route(); Bubble.update(); } });
+    route(); Bubble.update();
+  };
+  if (Welcome.needed()) Welcome.show({ message: (done && done.error) || (S.get().owner ? 'Your sign-in ran out. Please sign in again.' : ''), onDone: start });
+  else { if (done && done.error) toast(done.error); start(); }
 });
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !window.CODY_NATIVE) navigator.serviceWorker.register('/sw.js').catch(() => {});

@@ -38,3 +38,14 @@ test('sessions save, load, unlock premium, refuse tampering, and delete', async 
   await call({ action: 'delete', session: s });
   assert.equal((await call({ action: 'load', session: s })).body.data, null);
 });
+
+test('each student sees only their own saved things', async () => {
+  const ana = (await call({ action: 'signin', idToken: token({ sub: '1111111111' }), nonce: 'n1' })).body;
+  const ben = (await call({ action: 'signin', idToken: token({ sub: '2222222222', email: 'ben@example.com' }), nonce: 'n1' })).body;
+  assert.ok(ana.owner && ben.owner && ana.owner !== ben.owner, 'each account has its own owner label');
+  assert.ok(!ana.owner.includes('1111111111'), 'the label does not give away the Google account number');
+  await call({ action: 'save', session: ana.session, data: { reviewers: [{ id: 'r1', title: 'Ana’s secret notes' }] } });
+  const benLoads = (await call({ action: 'load', session: ben.session })).body;
+  assert.ok(!JSON.stringify(benLoads).includes('secret notes'), 'Ben never gets Ana’s things');
+  assert.equal((await call({ action: 'load', session: ana.session })).body.data.reviewers[0].title, 'Ana’s secret notes');
+});

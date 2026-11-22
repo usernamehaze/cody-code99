@@ -49,6 +49,8 @@ export function save() {
 }
 export const get = () => state || load();
 export const onChange = (f) => listeners.add(f);
+// everything on this device goes (signing out, or another account signing in on a shared phone)
+export function wipe() { state = fresh(); save(); }
 export function reset() { const keep = state && state.studentId; state = fresh(); if (keep) state.studentId = keep; save(); }
 
 // ---------- points, streak, week ----------
@@ -172,7 +174,7 @@ export function mergeIn(remote) {
   save();
 }
 // what goes to the account (the account's own session stays on this device)
-export const forAccount = () => { const { account, ...rest } = get(); return rest; };
+export const forAccount = () => { const { account, owner, guest, ...rest } = get(); return rest; }; // (who owns the device copy is not part of the backup)
 
 // ---------- Label it! games finished, for reviewer mastery ----------
 export function labelDone(revId) { const s = get(); s.labels = s.labels || {}; s.labels[revId] = (s.labels[revId] || 0) + 1; save(); }

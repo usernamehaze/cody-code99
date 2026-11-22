@@ -35,17 +35,23 @@ export async function finishSignIn() {
   if (failed) return { error: 'Google sign-in was cancelled.' };
   try {
     const j = await call({ action: 'signin', idToken, nonce });
-    const s = S.get();
+    let s = S.get();
+    // whose things does this device hold? Another account's (a shared phone): start clean, never mix them.
+    // Things made before signing in (no owner yet) join this account.
+    const other = s.owner && s.owner !== j.owner;
+    if (other) { S.wipe(); s = S.get(); }
+    s.owner = j.owner; delete s.guest;
     s.account = { session: j.session, name: j.user.name, email: j.user.email, picture: j.user.picture, premium: j.premium };
     if (!s.name && j.user.name) s.name = j.user.name;
     if (j.data) S.mergeIn(j.data); else S.save();
     await backup();
-    return { ok: true, name: j.user.name };
+    return { ok: true, name: j.user.name, fresh: !j.data && !other };
   } catch (e) { return { error: e.message }; }
 }
-export function signOut() { const s = S.get(); delete s.account; if (s.theme) delete s.theme; S.save(); }
+// signing out takes everything off this device (after one last backup), so the next person sees nothing of it
+export async function signOut() { await backup().catch(() => {}); S.wipe(); try { sessionStorage.clear(); } catch (e) { /* */ } }
 export async function unlockPremium() { const j = await call({ action: 'premium', session: me().session }); me().premium = j.premium; S.save(); }
-export async function deleteAccount() { await call({ action: 'delete', session: me().session }); signOut(); }
+export async function deleteAccount() { await call({ action: 'delete', session: me().session }); S.wipe(); }
 
 // a copy in the account, a few seconds after anything changes
 let timer = null, last = '';
@@ -60,5 +66,5 @@ export function watch() {
   S.onChange(() => { if (!me() || timer) return; timer = setTimeout(() => { timer = null; backup(); }, 4000); }); // at most 4s behind, even while busy
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') backup(); }); // leaving the app saves too
   // picks up what was done on another device
-  if (me()) call({ action: 'load', session: me().session }).then((j) => { if (j.data) S.mergeIn(j.data); if (me()) { me().premium = j.premium; S.save(); } }).catch(() => {});
+  if (me()) call({ action: 'load', session: me().session }).then((j) => { if (j.owner && S.get().owner && j.owner !== S.get().owner) return; if (j.data) S.mergeIn(j.data); if (me()) { me().premium = j.premium; S.save(); } }).catch(() => {});
 }

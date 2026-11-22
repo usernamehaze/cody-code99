@@ -2,8 +2,8 @@ import * as S from '../store.js';
 import { ask } from '../ai.js';
 import { readNotes, shrinkImage } from '../notes.js';
 import { mount, clean } from '../draw.js';
-import { esc, header, ICON, toast, askSure, busy, plural } from '../ui.js';
-import { say, emptyState } from '../mascot.js';
+import { esc, header, ICON, toast, askSure, busy, plural, choose } from '../ui.js';
+import { say, emptyState, mascot } from '../mascot.js';
 import { md } from '../md.js';
 import { saveGuidePdf } from '../pdf.js';
 import { saveGuideDocx } from '../docx.js';
@@ -31,7 +31,7 @@ export async function makeReviewer({ file, text, name, pages }, onStatus) {
   onStatus('Cody is writing your reviewer…');
   const { data } = await ask('reviewer', { notes: got.notes, file: got.file, files: got.files, fileName: got.name });
   const rev = { ...data, source: { name: got.name, pages: got.pages }, seconds: Math.max(1, Math.round((Date.now() - t0) / 1000)), drawing: null };
-  rev.guideState = 'writing';
+  rev.guideState = 'writing'; rev.askHow = true; // (asked once, when the full reviewer is written)
   S.addReviewer(rev);
   const refresh = () => { if (location.hash.startsWith('#/reviewer/' + rev.id)) window.dispatchEvent(new HashChangeEvent('hashchange')); };
   // the full study guide (like a printed reviewer) is longer, so it is written in the background too
@@ -94,7 +94,7 @@ function wireUpload(root) {
   let working = false;
   const show = (m) => { status.innerHTML = `<span class="spin" aria-hidden="true"></span> ${esc(m)}`; };
   const make = async (what) => {
-    try { const rev = await makeReviewer(what, show); S.award(15, 2); toast('Your reviewer is ready!'); say('cheer', 'Your reviewer is ready! Try the quiz next.'); location.hash = '#/reviewer/' + rev.id; }
+    try { const rev = await makeReviewer(what, show); S.award(15, 2); toast('Your quiz and flashcards are ready!'); say('draw', 'I’m still writing the full reviewer. I’ll ask you how you want it.'); location.hash = '#/reviewer/' + rev.id; }
     catch (e) { status.textContent = e.message; }
   };
   // one upload at a time; pasted notes also spin the button that was pressed
@@ -136,8 +136,8 @@ export function renderList(root, params) {
     <section class="grid-2">
       <div class="card"><h2 class="eyebrow">Your reviewers</h2>
         ${s.reviewers.length ? '' : emptyState({ mood: 'wave', size: 100, title: 'No reviewers yet', text: 'Drop your notes on the right. Cody turns them into a study guide, key terms, a quiz and flashcards.' })}
-        <ul class="list">${s.reviewers.map((r) => `
-          <li><a href="#/reviewer/${esc(r.id)}"><b>${esc(r.title)}</b><span class="muted">${esc(r.subject || '')} · ${plural(r.terms.length, 'term')} · ${plural(r.quiz.length, 'question')}${premium() ? ` · ${S.mastery(r.id).pct}% mastered` : ''}</span></a></li>`).join('')}
+        <ul class="list rev-list">${s.reviewers.map((r) => `
+          <li><a href="#/reviewer/${esc(r.id)}"><span class="rl-ico">${DOC_ICON}</span><span class="rl-t"><b>${esc(r.title)}</b><span class="muted">${esc(r.subject || 'Reviewer')} · ${plural(r.quiz.length, 'question')} · ${plural((r.cards || []).length, 'card')}${premium() ? ` · ${S.mastery(r.id).pct}% mastered` : ''}${r.guideState === 'writing' && !r.guide ? ' · writing…' : ''}</span></span></a></li>`).join('')}
         </ul></div>
       <div class="card"><h2 class="eyebrow">New reviewer</h2>${uploadZone()}</div>
     </section>`;
@@ -145,72 +145,119 @@ export function renderList(root, params) {
   if (params.get('upload')) root.querySelector('.drop').focus();
 }
 
+// ---------- one reviewer: a short page, not a wall of text ----------
+// The reviewer itself is a "file" card (read it, save it as PDF or Word); the long study guide opens on its own
+// reading page (#/guide/…), in sections that fold, so this page stays short. When Cody finishes writing it, Cody
+// asks once how the student wants it: read in Cody, a PDF, or a Word file.
+const DOC_ICON = '<svg viewBox="0 0 40 48" width="40" height="48" aria-hidden="true"><path d="M6 2h20l12 12v30a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="var(--teal)" opacity=".18"/><path d="M6 2h20l12 12v30a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="none" stroke="var(--teal)" stroke-width="2.4"/><path d="M26 2v12h12" fill="none" stroke="var(--teal)" stroke-width="2.4"/><path d="M11 24h18M11 31h18M11 38h11" stroke="var(--teal)" stroke-width="2.6" stroke-linecap="round"/></svg>';
+const ready = (r) => !!(r.guide || r.guideState !== 'writing');
+
+async function savePdf(r) {
+  // a real PDF file, made on the device (iPhones block websites from opening the print dialog)
+  const text = reviewerDoc(r);
+  // the PDF's fonts only know Western letters: a reviewer in Chinese, Japanese or Korean goes to Word instead
+  if ((text.match(/[^\x00-ɏ -⟿\s]/g) || []).length > text.length * 0.05) { toast('This reviewer uses letters the PDF can’t show. Use Word instead.'); return; }
+  try { await saveGuidePdf(text, fileName(r, 'pdf')); toast('PDF saved'); } catch (e) { toast(e.message || 'Could not make the PDF.'); }
+}
+function saveDocx(r) { try { saveGuideDocx(reviewerDoc(r), fileName(r, 'docx')); toast('Word file saved'); } catch (e) { toast(e.message || 'Could not make the Word file.'); } }
+function wireSave(root, r) {
+  const pdf = root.querySelector('.save-pdf'), docx = root.querySelector('.save-docx'), copy = root.querySelector('.copy-guide');
+  if (pdf) pdf.addEventListener('click', () => busy(pdf, 'Making the PDF…', () => savePdf(r)));
+  if (docx) docx.addEventListener('click', () => busy(docx, 'Making the Word file…', async () => saveDocx(r)));
+  if (copy) copy.addEventListener('click', () => navigator.clipboard.writeText(reviewerDoc(r)).then(() => toast('Reviewer copied'), () => toast('Could not copy')));
+}
+// once, when the full reviewer is written: how does the student want it?
+async function askHow(r) {
+  r.askHow = false; S.save();
+  const pick = await choose({
+    title: 'Your reviewer is ready!', body: `How do you want “${r.title}”?`, art: mascot('cheer', 64),
+    options: [
+      { value: 'read', label: 'Read it here in Cody', sub: 'One section at a time', icon: ICON.file },
+      { value: 'pdf', label: 'Save it as a PDF', sub: 'To print, or read offline', icon: ICON.file },
+      { value: 'docx', label: 'Save it as a Word file', sub: 'To edit, or open in Google Docs', icon: ICON.file },
+      { value: 'quiz', label: 'Skip it, quiz me now', sub: `${plural(r.quiz.length, 'question')} from your notes`, icon: ICON.quiz },
+    ],
+    later: 'Not now',
+  });
+  if (pick === 'read') location.hash = '#/guide/' + r.id;
+  else if (pick === 'pdf') savePdf(r);
+  else if (pick === 'docx') saveDocx(r);
+  else if (pick === 'quiz') location.hash = '#/quiz/' + r.id;
+}
+
 export function renderOne(root, id) {
   const r = S.reviewer(id);
   if (!r) { location.hash = '#/reviewers'; return; }
+  const nCards = (r.cards || []).length, TERMS = 4;
+  const src = r.source ? `${r.source.name}${r.source.pages ? ` · ${plural(r.source.pages, 'page')}` : ''}` : 'your notes';
   root.innerHTML = `
-    ${header(`Reviewer: ${r.title}`, r.seconds ? `Made by Cody from your notes in ${r.seconds} seconds` : 'Made by Cody from your notes', `
-      <a class="btn" href="#/chat?about=${esc(r.id)}">${ICON.chat} Ask Cody about this</a><a class="btn" href="#/flashcards/${esc(r.id)}">Study flashcards</a><a class="btn primary" href="#/quiz/${esc(r.id)}">Quiz me on this</a>`)}
-    <section class="grid-2 grow">
-      <div class="col">
-        ${r.drawing ? `<div class="card mobile-first"><div class="board sm" id="rev-draw"></div></div>` : ''}
-        <div class="tabs-row" role="tablist" aria-label="Reviewer view">
-          <button class="tab on" role="tab" aria-selected="true" data-v="guide">Study guide</button><button class="tab" role="tab" aria-selected="false" data-v="terms">Key terms</button>
-        </div>
-        <div class="card guide-card" data-v="guide">
-          <div class="guide-tools">${r.guide || r.guideState !== 'writing' ? `<span class="muted save-as">Save the reviewer with its quiz, answer key and flashcards</span><button class="btn small save-pdf" aria-label="Save as PDF">${ICON.file} PDF</button><button class="btn small save-docx" aria-label="Save as a Word document">${ICON.file} Word</button><button class="btn small copy-guide" aria-label="Copy the reviewer">${ICON.copy} Copy</button>` : ''}</div>
-          ${r.guideState === 'writing' && !r.guide ? `<div class="guide-wait"><div class="thinking"><span></span><span></span><span></span></div><p>Cody is writing your full study guide. The key terms, quiz and flashcards are ready now.</p></div>` : ''}
-          ${r.guide || r.guideState !== 'writing' ? `<article class="guide-doc">${md(r.guide || guideFrom(r), { headings: 'doc' })}</article>` : ''}
-          ${r.guideState === 'failed' ? `<p class="muted small">Cody could not write the long study guide this time, so this one is made from your key terms.</p>` : ''}
-        </div>
-        <div class="card terms-card" data-v="terms" hidden>
-          <h2 class="eyebrow">Key terms</h2>
-          ${r.summary ? `<p class="summary">${esc(r.summary)}</p>` : ''}
-          <dl class="terms">${r.terms.map((t, i) => `
-            <div class="term"><dt>${esc(t.term)}</dt><dd>${esc(t.meaning)}</dd>
-              <a class="btn outline small" href="#/draw/${esc(r.id)}?part=${encodeURIComponent(t.part || '')}&term=${i}">✎ Draw it</a></div>`).join('')}
-          </dl>
-        </div>
+    ${header(r.title, `${r.subject || 'Reviewer'} · made by Cody${r.seconds ? ` in ${plural(r.seconds, 'second')}` : ''}`)}
+    <section class="rev-page">
+      <div class="card rev-file">
+        <div class="rf-top">${DOC_ICON}<div class="rf-name"><b>Reviewer: ${esc(r.title)}</b><span class="muted">${ready(r) ? `Study guide · ${plural(r.quiz.length, 'quiz question')} with answer key · ${plural(nCards, 'flashcard')}` : 'Cody is writing the full reviewer…'}</span></div></div>
+        ${ready(r) ? `<div class="rf-acts"><a class="btn small" href="#/guide/${esc(r.id)}">Read</a><button class="btn small save-pdf" aria-label="Save as PDF">PDF</button><button class="btn small save-docx" aria-label="Save as a Word file">Word</button></div>`
+          : `<p class="rf-wait"><span class="spin" aria-hidden="true"></span> Writing the full study guide. The quiz, flashcards and key terms below are ready now.</p>`}
+        ${r.guideState === 'failed' ? '<p class="muted small">Cody couldn’t write the long study guide this time, so this one is made from your key terms.</p>' : ''}
+        <p class="rf-src muted small">From ${esc(src)}</p>
       </div>
-      <div class="col">
-        <div class="card mastery-card"><h2 class="eyebrow">Reviewer mastery</h2>${masteryCard(r)}</div>
-        <div class="card"><h2 class="eyebrow">Your notes</h2>${uploadZone()}
-          ${r.source ? `<div class="file"><span class="pdf">${/\.pdf$/i.test(r.source.name) ? 'PDF' : 'TXT'}</span><div><b>${esc(r.source.name)}</b><span class="muted">${r.source.pages} page${r.source.pages === 1 ? '' : 's'} · read</span></div></div>` : ''}
-        </div>
-        <div class="card"><h2 class="eyebrow">Practice questions</h2>
-          <ol class="questions">${(r.questions || []).map((q, i) => `<li><a href="#/quiz/${esc(r.id)}">${i + 1}. ${esc(q)}</a></li>`).join('')}</ol>
-          <button class="btn ghost small del">${ICON.trash} Delete this reviewer</button>
-        </div>
+      <div class="tools-grid">
+        <a class="tool primary" href="#/quiz/${esc(r.id)}">${ICON.quiz}<b>Quiz me</b><small>${plural(r.quiz.length, 'question')}</small></a>
+        <a class="tool" href="#/flashcards/${esc(r.id)}">${ICON.cards}<b>Flashcards</b><small>${plural(nCards, 'card')}</small></a>
+        ${r.drawing ? `<a class="tool" href="#/label/${esc(r.id)}">${ICON.game}<b>Label it!</b><small>Name the parts</small></a>` : `<a class="tool" href="#/draw/${esc(r.id)}">${ICON.pencil}<b>Draw it</b><small>Cody draws it</small></a>`}
+        <a class="tool" href="#/chat?about=${esc(r.id)}">${ICON.chat}<b>Ask Cody</b><small>About this reviewer</small></a>
       </div>
+      ${r.drawing ? `<div class="card"><div class="board sm" id="rev-draw"></div></div>` : ''}
+      <div class="card"><h2 class="eyebrow">Key terms</h2>
+        ${r.summary ? `<p class="summary">${esc(r.summary)}</p>` : ''}
+        <dl class="terms">${r.terms.map((t, i) => `
+          <div class="term"${i >= TERMS ? ' hidden' : ''}><dt>${esc(t.term)}</dt><dd>${esc(t.meaning)}</dd>
+            <a class="btn outline small" href="#/draw/${esc(r.id)}?part=${encodeURIComponent(t.part || '')}&term=${i}">✎ Draw it</a></div>`).join('')}
+        </dl>
+        ${r.terms.length > TERMS ? `<button type="button" class="btn small more-terms">Show all ${r.terms.length} terms</button>` : ''}
+      </div>
+      <div class="card mastery-card"><h2 class="eyebrow">Reviewer mastery</h2>${masteryCard(r)}</div>
+      <details class="card rev-more"><summary>More</summary>
+        ${(r.questions || []).length ? `<h3 class="sub-h">Practice questions</h3><ol class="questions">${r.questions.map((q) => `<li><a href="#/quiz/${esc(r.id)}">${esc(q)}</a></li>`).join('')}</ol>` : ''}
+        <div class="row"><button class="btn small copy-guide">${ICON.copy} Copy the reviewer</button><button class="btn ghost small del">${ICON.trash} Delete this reviewer</button></div>
+      </details>
     </section>`;
-  wireUpload(root);
   if (r.drawing) { const c = mount(root.querySelector('#rev-draw'), r.drawing, {}); if (c) c.showAll(); }
-  const del = root.querySelector('.del');
-  if (del) del.addEventListener('click', async () => {
+  const more = root.querySelector('.more-terms');
+  if (more) more.addEventListener('click', () => { root.querySelectorAll('.term[hidden]').forEach((t) => { t.hidden = false; }); more.remove(); });
+  root.querySelector('.del').addEventListener('click', async () => {
     const n = S.get().cards.filter((c) => c.deck === r.id).length;
-    if (await askSure({ title: `Delete “${r.title}”?`, body: `Its study guide, key terms, quiz and ${plural(n, 'flashcard')} will be gone from this device. This can't be undone.`, action: 'Delete reviewer' })) { S.removeReviewer(r.id); location.hash = '#/reviewers'; }
+    if (await askSure({ title: `Delete “${r.title}”?`, body: `Its study guide, key terms, quiz and ${plural(n, 'flashcard')} will be deleted. This can't be undone.`, action: 'Delete reviewer' })) { S.removeReviewer(r.id); location.hash = '#/reviewers'; }
   });
-  root.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
-    root.querySelectorAll('.tab').forEach((x) => { const on = x === t; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
-    root.querySelector('.guide-card').hidden = t.dataset.v !== 'guide';
-    root.querySelector('.terms-card').hidden = t.dataset.v !== 'terms';
+  wireSave(root, r);
+  S.markPlan('read-' + r.id);
+  if (r.askHow && ready(r)) setTimeout(() => { if (root.isConnected && location.hash.includes(r.id)) askHow(r); }, 400);
+}
+
+// ---------- the study guide, on its own page: a contents row and one folding section per heading ----------
+export function renderGuide(root, id) {
+  const r = S.reviewer(id);
+  if (!r) { location.hash = '#/reviewers'; return; }
+  if (!ready(r)) { location.hash = '#/reviewer/' + r.id; return; }
+  const text = r.guide || guideFrom(r);
+  const at = text.search(/^##\s/m), intro = at < 0 ? text : text.slice(0, at);
+  const parts = at < 0 ? [] : text.slice(at).split(/^(?=##\s)/m).map((sec) => { const nl = sec.indexOf('\n'); return { h: sec.slice(3, nl < 0 ? undefined : nl).trim(), body: nl < 0 ? '' : sec.slice(nl + 1).replace(/\n-{3,}\s*$/,'').trim() }; }).filter((p) => p.h);
+  const lead = intro.replace(/^#\s.*$/m, '').replace(/^-{3,}\s*$/gm, '').trim();
+  const name = (h) => h.replace(/[*_`]/g, '');
+  root.innerHTML = `
+    <a class="back-link" href="#/reviewer/${esc(r.id)}">‹ Back to the reviewer</a>
+    ${header(r.title, 'Study guide · tap a section to open it')}
+    <div class="guide-bar"><button class="btn small save-pdf" aria-label="Save as PDF">${ICON.file} PDF</button><button class="btn small save-docx" aria-label="Save as a Word file">${ICON.file} Word</button><button class="btn small copy-guide" aria-label="Copy the reviewer">${ICON.copy} Copy</button></div>
+    ${parts.length > 2 ? `<nav class="toc" aria-label="Sections">${parts.map((p, i) => `<button type="button" class="chip" data-i="${i}">${esc(name(p.h).replace(/^\d+\.\s*/, ''))}</button>`).join('')}</nav>` : ''}
+    <article class="guide-doc guide-read">
+      ${lead ? `<div class="g-lead">${md(lead)}</div>` : ''}
+      ${parts.length ? parts.map((p, i) => `<details class="g-sec" data-i="${i}"${i === 0 ? ' open' : ''}><summary><span>${esc(name(p.h))}</span></summary><div class="g-body">${md(p.body, { headings: 'doc' })}</div></details>`).join('') : md(text, { headings: 'doc' })}
+    </article>
+    <div class="guide-end"><a class="btn primary" href="#/quiz/${esc(r.id)}">Done reading? Quiz me</a></div>`;
+  wireSave(root, r);
+  root.querySelectorAll('.toc .chip').forEach((c) => c.addEventListener('click', () => {
+    const d = root.querySelector(`.g-sec[data-i="${c.dataset.i}"]`); if (!d) return;
+    d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
-  const pdf = root.querySelector('.save-pdf');
-  if (pdf) pdf.addEventListener('click', () => busy(pdf, 'Making the PDF…', async () => {
-    // a real PDF file, made on the device (iPhones block websites from opening the print dialog)
-    const text = reviewerDoc(r);
-    // the PDF's fonts only know Western letters: a reviewer in Chinese, Japanese or Korean goes to Word instead
-    if ((text.match(/[^\x00-\u024f\u2000-\u27ff\s]/g) || []).length > text.length * 0.05) { toast('This reviewer uses letters the PDF can’t show. Use Save as Word.'); return; }
-    try { await saveGuidePdf(text, fileName(r, 'pdf')); toast('PDF saved'); }
-    catch (e) { toast(e.message || 'Could not make the PDF.'); }
-  }));
-  const docx = root.querySelector('.save-docx');
-  if (docx) docx.addEventListener('click', () => busy(docx, 'Making the Word file…', async () => {
-    try { saveGuideDocx(reviewerDoc(r), fileName(r, 'docx')); toast('Word file saved'); }
-    catch (e) { toast(e.message || 'Could not make the Word file.'); }
-  }));
-  const copy = root.querySelector('.copy-guide');
-  if (copy) copy.addEventListener('click', () => navigator.clipboard.writeText(reviewerDoc(r)).then(() => toast('Study guide copied'), () => toast('Could not copy')));
   S.markPlan('read-' + r.id);
 }
 

@@ -153,3 +153,37 @@ export function addMsg(c, m) {
   save();
 }
 export function removeChat(id) { const s = get(); s.chats = chats().filter((c) => c.id !== id); save(); }
+
+// ---------- an account's copy, merged with this device's (nothing is lost on either side) ----------
+const byId = (a = [], b = [], keep) => { const m = new Map(); [...a, ...b].forEach((x) => { if (!x || !x.id) return; const o = m.get(x.id); m.set(x.id, o ? keep(o, x) : x); }); return [...m.values()]; };
+export function mergeIn(remote) {
+  if (!remote || typeof remote !== 'object') return;
+  const s = get();
+  s.reviewers = byId(s.reviewers, remote.reviewers, (a, b) => ((b.guide || '').length > (a.guide || '').length ? b : a));
+  s.cards = byId(s.cards, remote.cards, (a, b) => (b.box > a.box ? b : a));
+  s.chats = byId(s.chats, remote.chats, (a, b) => ((b.msgs || []).length > (a.msgs || []).length ? b : a)).sort((a, b) => (b.at || 0) - (a.at || 0));
+  for (const [k, d] of Object.entries(remote.days || {})) { const o = s.days[k]; s.days[k] = o ? { pts: Math.max(o.pts, d.pts), min: Math.max(o.min, d.min) } : d; }
+  for (const [k, q] of Object.entries(remote.quiz || {})) { const o = s.quiz[k]; s.quiz[k] = o ? { best: Math.max(o.best, q.best), last: o.last } : q; }
+  for (const [k, p] of Object.entries(remote.plan || {})) s.plan[k] = { ...p, ...(s.plan[k] || {}) };
+  for (const [k, v] of Object.entries(remote.labels || {})) s.labels = { ...(s.labels || {}), [k]: Math.max(v, (s.labels || {})[k] || 0) };
+  s.points = Math.max(s.points || 0, remote.points || 0);
+  for (const k of ['name', 'lang', 'theme', 'class', 'studentId']) if (!s[k] && remote[k]) s[k] = remote[k];
+  if ((!s.exam || !s.exam.date) && remote.exam) s.exam = remote.exam;
+  save();
+}
+// what goes to the account (the account's own session stays on this device)
+export const forAccount = () => { const { account, ...rest } = get(); return rest; };
+
+// ---------- Label it! games finished, for reviewer mastery ----------
+export function labelDone(revId) { const s = get(); s.labels = s.labels || {}; s.labels[revId] = (s.labels[revId] || 0) + 1; save(); }
+// how well a student knows a reviewer: quiz best (45%), cards learned (40%), Label it! played (15%)
+export function mastery(revId) {
+  const s = get(), r = reviewer(revId); if (!r) return null;
+  const cards = s.cards.filter((c) => c.deck === revId), learned = cards.length ? cards.filter((c) => c.box >= 3).length / cards.length : 0;
+  const quiz = s.quiz[revId] ? s.quiz[revId].best / 100 : 0, label = r.drawing ? Math.min(1, ((s.labels || {})[revId] || 0) / 2) : null;
+  const pct = Math.round(label == null ? (quiz * 0.5 + learned * 0.5) * 100 : (quiz * 0.45 + learned * 0.4 + label * 0.15) * 100);
+  const level = pct >= 85 ? 'Mastered' : pct >= 60 ? 'Almost there' : pct >= 25 ? 'Learning' : 'Just started';
+  const next = !s.quiz[revId] ? { text: 'Take the quiz', go: `#/quiz/${revId}` } : learned < 0.6 ? { text: 'Study the flashcards', go: `#/flashcards/${revId}` }
+    : label != null && label < 1 ? { text: 'Play Label it!', go: `#/label/${revId}` } : quiz < 0.9 ? { text: 'Beat your quiz score', go: `#/quiz/${revId}` } : null;
+  return { pct, level, quiz: Math.round(quiz * 100), learned: Math.round(learned * 100), cards: cards.length, label, next };
+}

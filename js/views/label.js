@@ -29,6 +29,7 @@ export function render(root, id) {
     <section class="split grow">
       <div class="card"><div class="board" id="game-board"></div></div>
       <div class="card panel">
+        <p class="goal"><b>What you’ll learn:</b> to name each part of ${esc(rev.title.toLowerCase())} and find it on the drawing from memory.</p>
         <h2 class="eyebrow">Names to place</h2>
         <div class="names">${names.map((p) => `<button class="name" data-id="${esc(p.id)}">${esc(p.label)}</button>`).join('')}</div>
         <p class="muted progress-text">0 of ${names.length} placed</p>
@@ -70,9 +71,9 @@ export function render(root, id) {
   }
   function finish() {
     finished = true; clearInterval(clock);
-    S.award(points, 3); S.markPlan('label-' + rev.id);
+    S.award(points, 3); S.markPlan('label-' + rev.id); S.labelDone(rev.id);
     const s = Math.round((Date.now() - t0) / 1000);
-    $('.tip').innerHTML = `<b>All ${names.length} placed in ${s} seconds!</b><p>You earned ${points} points.</p><div class="row"><a class="btn primary small" href="#/quiz/${esc(rev.id)}">Quiz me next</a><button class="btn small again">Play again</button></div>`;
+    $('.tip').innerHTML = `<b>All ${names.length} placed in ${s} seconds!</b><p>You earned ${points} points. You can now name and place ${names.length} parts of ${esc(rev.title.toLowerCase())}.</p><div class="row"><a class="btn primary small" href="#/quiz/${esc(rev.id)}">Quiz me next</a><button class="btn small again">Play again</button></div>`;
     $('.again').addEventListener('click', () => render(root, id));
     toast(`+${points} points!`); say('cheer', `All placed! +${points} points`);
   }

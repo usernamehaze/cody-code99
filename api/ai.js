@@ -30,6 +30,13 @@ const fail = async (name, r) => { const msg = await why(r); return Object.assign
 const CLAUDE_MODEL = () => env('CLAUDE_MODEL') || 'claude-opus-5-5';
 // a provider's own short reason ("model not found", "quota exceeded"), never the key
 const why = async (r) => { try { const j = await r.json(); const e = j.error || j; return String(e.message || e.status || '').slice(0, 160); } catch (e) { return ''; } };
+// the language Cody writes in (chosen in Me); English unless one of these is picked
+const LANGS = { en: 'English', fil: 'Filipino', taglish: 'Taglish (English and Filipino mixed the way Filipino students talk)', hil: 'Hiligaynon (Ilonggo)', ceb: 'Cebuano (Bisaya)', ilo: 'Ilocano', bik: 'Bikol', war: 'Waray', pam: 'Kapampangan', pag: 'Pangasinan', es: 'Spanish', zh: 'Chinese (Simplified)', ja: 'Japanese', ko: 'Korean' };
+function langRule(code) {
+  const name = LANGS[code];
+  if (!name || code === 'en') return '';
+  return `\n\nLANGUAGE: write every word meant for the student (all text values in the JSON) in ${name}. Keep scientific, technical and proper names the way they are usually taught (often in English). Keep the JSON keys in English.`;
+}
 const MAX_FILE = 3.5 * 1024 * 1024; // Vercel takes request bodies up to 4.5 MB
 
 function parseJSON(text) {
@@ -39,7 +46,7 @@ function parseJSON(text) {
 }
 
 const groq = (prompt, file, opts = {}) => eachModel(GROQ_MODELS(), async (model) => {
-  const body = { model, temperature: 0.4, max_tokens: 12000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] };
+  const body = { model, temperature: 0.4, max_tokens: 12000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM() }, { role: 'user', content: prompt }] };
   if (/gpt-oss/.test(model)) body.reasoning_effort = opts.effort || 'low'; // (quick answers; a study guide thinks harder)
   const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST', signal: AbortSignal.timeout(30000),
@@ -54,12 +61,12 @@ const groq = (prompt, file, opts = {}) => eachModel(GROQ_MODELS(), async (model)
 const gemini = (prompt, file) => eachModel(GEMINI_MODELS(), (model) => geminiOnce(model, prompt, file));
 async function geminiOnce(model, prompt, file) {
   const parts = [];
-  if (file) parts.push({ inline_data: { mime_type: file.type, data: file.data } });
+  if (file) file.forEach((f) => parts.push({ inline_data: { mime_type: f.type, data: f.data } }));
   parts.push({ text: prompt });
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST', signal: AbortSignal.timeout(file ? 45000 : 30000),
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env('GEMINI_API_KEY') },
-    body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } }),
+    body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM() }] }, contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } }),
   });
   if (!r.ok) throw await fail('Gemini', r);
   const j = await r.json();
@@ -71,12 +78,13 @@ let claudeClient = null;
 async function claude(prompt, file) {
   claudeClient = claudeClient || new Anthropic({ apiKey: env('ANTHROPIC_API_KEY'), timeout: 55000, maxRetries: 1 });
   const content = [];
-  if (file && file.type === 'application/pdf') content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: file.data } });
-  else if (file) content.push({ type: 'image', source: { type: 'base64', media_type: file.type, data: file.data } });
+  (file || []).forEach((f) => content.push(f.type === 'application/pdf'
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: f.data } }
+    : { type: 'image', source: { type: 'base64', media_type: f.type, data: f.data } }));
   content.push({ type: 'text', text: prompt });
   // fallbacks: 'default' lets the API rerun a declined request on a fallback model inside the same call
   const msg = await claudeClient.beta.messages.create({
-    model: CLAUDE_MODEL(), max_tokens: 16000, system: SYSTEM,
+    model: CLAUDE_MODEL(), max_tokens: 16000, system: SYSTEM(),
     output_config: { effort: 'low' },
     betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
     messages: [{ role: 'user', content }],
@@ -94,13 +102,13 @@ async function ask(prompt, check, file, opts = {}) {
   for (const name of opts.order || ORDER) {
     const p = PROVIDERS[name];
     if (!env(p.key) || (file && !p.files)) continue;
-    let q = prompt;
+    let q = prompt + (opts.lang || '');
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const out = check(await p.run(q, file, opts));
         if (out && out.ok !== false) return { data: out.spec || out, by: name, skipped: tried };
         tried.push(`${name}: answer not usable${out && out.why ? ` (${out.why})` : ''}`);
-        q = `${prompt}\n\nYour last answer could not be used${out && out.why ? `: ${out.why}` : ''}. Try again, following the shape exactly.`;
+        q = `${prompt}${opts.lang || ''}\n\nYour last answer could not be used${out && out.why ? `: ${out.why}` : ''}. Try again, following the shape exactly.`;
       } catch (e) { tried.push(`${name}: ${e.message}`); break; }
     }
   }
@@ -116,33 +124,40 @@ export default async function handler(req, res) {
   // (300 an hour: a whole class can share one school address)
   if (limited(req, 'ai', 300)) return res.status(429).json({ ok: false, error: 'Cody needs a short break. Try again in a few minutes.' });
   const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
+  // one file (a PDF or a photo) or up to 8 scanned pages (photos), read by Gemini or Claude
   let file = null;
-  if (body.file && body.file.data) {
-    const type = String(body.file.type || '');
-    if (!/^(application\/pdf|image\/(png|jpeg|webp|gif))$/.test(type)) return res.status(400).json({ ok: false, error: 'Use a PDF, a photo, or paste your notes.' });
-    if (body.file.data.length * 0.75 > MAX_FILE) return res.status(413).json({ ok: false, error: 'That file is too big. Try a smaller PDF, or paste the text.' });
-    file = { type, data: String(body.file.data) };
+  const given = Array.isArray(body.files) ? body.files.slice(0, 8) : body.file && body.file.data ? [body.file] : [];
+  if (given.length) {
+    let size = 0;
+    for (const f of given) {
+      const type = String((f && f.type) || '');
+      if (!/^(application\/pdf|image\/(png|jpeg|webp|gif))$/.test(type) || typeof f.data !== 'string') return res.status(400).json({ ok: false, error: 'Use a PDF, a photo, or paste your notes.' });
+      size += f.data.length * 0.75;
+    }
+    if (size > MAX_FILE) return res.status(413).json({ ok: false, error: given.length > 1 ? 'Those pages are too big together. Try fewer pages.' : 'That file is too big. Try a smaller PDF, or paste the text.' });
+    file = given.map((f) => ({ type: f.type, data: String(f.data) }));
   }
+  const lang = langRule(body.lang);
   try {
     let out;
     if (body.task === 'reviewer') {
       if (!file && !String(body.notes || '').trim()) return res.status(400).json({ ok: false, error: 'Add some notes first.' });
-      out = await ask(reviewerPrompt({ notes: body.notes, fileName: body.fileName }), checkReviewer, file, { effort: 'medium' });
+      out = await ask(reviewerPrompt({ notes: body.notes, fileName: body.fileName }), checkReviewer, file, { effort: 'medium', lang });
     } else if (body.task === 'guide') {
       if (!file && !String(body.notes || '').trim()) return res.status(400).json({ ok: false, error: 'Add some notes first.' });
       // a study guide is long and must be exact, and nobody waits for it (it is written in the background):
       // Gemini first (it read wrapped tables more accurately in testing), which also leaves Groq's per-minute
       // allowance on its free plan for chat and quizzes
-      out = await ask(guidePrompt({ notes: body.notes, fileName: body.fileName }), checkGuide, file, { effort: 'medium', order: ['gemini', 'groq', 'claude'] });
+      out = await ask(guidePrompt({ notes: body.notes, fileName: body.fileName }), checkGuide, file, { effort: 'medium', order: ['gemini', 'groq', 'claude'], lang });
     } else if (body.task === 'draw') {
       if (!String(body.question || '').trim()) return res.status(400).json({ ok: false, error: 'Ask Cody what to draw.' });
-      out = await ask(drawPrompt({ question: body.question, context: body.context }), checkDrawing, null);
+      out = await ask(drawPrompt({ question: body.question, context: body.context }), checkDrawing, null, { lang });
     } else if (body.task === 'chat') {
       const msgs = Array.isArray(body.messages) ? body.messages : [];
       if (!msgs.length || !String((msgs[msgs.length - 1] || {}).text || '').trim()) return res.status(400).json({ ok: false, error: 'Say something to Cody first.' });
-      out = await ask(chatPrompt({ messages: msgs, mode: body.mode, context: body.context, name: body.name }), checkChat, file);
+      out = await ask(chatPrompt({ messages: msgs, mode: body.mode, context: body.context, name: body.name }), checkChat, file, { lang });
     } else if (body.task === 'explain') {
-      out = await ask(explainPrompt(body), checkExplain, null);
+      out = await ask(explainPrompt(body), checkExplain, null, { lang });
     } else return res.status(400).json({ ok: false, error: 'Unknown task' });
     return res.status(200).json({ ok: true, ...out });
   } catch (e) {

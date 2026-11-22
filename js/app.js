@@ -12,6 +12,10 @@ import * as importer from './views/import.js';
 import * as chat from './views/chat.js';
 import * as room from './views/room.js';
 import * as Mascot from './mascot.js';
+import * as Acc from './account.js';
+import { apply as applyTheme } from './theme.js';
+import * as Bubble from './bubble.js';
+import { toast } from './ui.js';
 import * as Class from './classroom.js';
 
 const NAV = [
@@ -64,9 +68,18 @@ function route() {
 }
 
 S.load();
+if (Acc.premium()) applyTheme(S.get().theme);
 shell();
 S.onChange(streakCard);
 Class.watch();
-window.addEventListener('hashchange', route);
-route();
+Bubble.mount();
+// coming back from Google's sign-in page: finish it before showing any screen
+Acc.finishSignIn().then((done) => {
+  if (done && done.ok) toast(`Signed in. Welcome${done.name ? ', ' + done.name : ''}!`);
+  if (done && done.error) toast(done.error);
+  if (Acc.premium()) applyTheme(S.get().theme);
+  Acc.watch();
+  window.addEventListener('hashchange', () => { route(); Bubble.update(); });
+  route(); Bubble.update();
+});
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !window.CODY_NATIVE) navigator.serviceWorker.register('/sw.js').catch(() => {});

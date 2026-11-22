@@ -10,7 +10,11 @@ const call = async (handler, body, method = 'POST') => {
 };
 const reviewer = { title: 'The heart', subject: 'Biology', terms: [{ term: 'Atria', meaning: 'Top chambers.' }, { term: 'Valves', meaning: 'Keep blood flowing one way.' }],
   quiz: [0, 1, 2].map((i) => ({ q: `Q${i}?`, choices: ['a', 'b', 'c', 'd'], a: i, why: 'because' })), cards: [], questions: ['Why?'], drawable: 'the human heart' };
-const drawing = { title: 'Heart', parts: [{ id: 'a', label: 'A', anchor: [50, 50], shapes: [{ t: 'circle', cx: 50, cy: 50, r: 10 }] }, { id: 'b', label: 'B', anchor: [300, 60], shapes: [{ t: 'circle', cx: 300, cy: 60, r: 10 }] }, { id: 'c', label: 'C', anchor: [200, 250], shapes: [{ t: 'path', d: 'M 180 250 L 220 250' }] }] };
+// a realistic drawing: each part a curved, shaded outline plus thin detail strokes
+const part = (id, x, y) => ({ id, label: id.toUpperCase(), anchor: [x, y], shapes: [
+  { t: 'path', fill: true, d: `M ${x - 20} ${y} C ${x - 20} ${y - 18} ${x + 20} ${y - 18} ${x + 20} ${y} C ${x + 22} ${y + 14} ${x - 8} ${y + 20} ${x - 20} ${y} Z` },
+  { t: 'path', sw: 1.5, d: `M ${x - 10} ${y} Q ${x} ${y - 6} ${x + 10} ${y}` }] });
+const drawing = { title: 'Heart', parts: [part('a', 50, 50), part('b', 300, 60), part('c', 200, 250)] };
 
 test('checkReviewer keeps good answers and drops broken ones', () => {
   const r = checkReviewer(reviewer);
@@ -26,6 +30,14 @@ test('checkDrawing wants 3+ parts spread over the board', () => {
   const piled = { parts: drawing.parts.map((p) => ({ ...p, anchor: [10, 10] })) };
   assert.equal(checkDrawing(piled).ok, false);
   assert.equal(checkDrawing({ parts: drawing.parts.slice(0, 2) }).ok, false);
+});
+
+test('checkDrawing sends back a drawing made of plain boxes and circles', () => {
+  const boxes = { parts: drawing.parts.map((p) => ({ ...p, shapes: [{ t: 'rect', x: p.anchor[0] - 20, y: p.anchor[1] - 10, width: 40, height: 20 }, { t: 'circle', cx: p.anchor[0], cy: p.anchor[1], r: 6 }] })) };
+  const r = checkDrawing(boxes);
+  assert.equal(r.ok, false); assert.match(r.why, /curves|rectangles/);
+  const sticks = { parts: drawing.parts.map((p) => ({ ...p, shapes: [{ t: 'path', d: `M ${p.anchor[0]} ${p.anchor[1]} L ${p.anchor[0] + 40} ${p.anchor[1]}` }] })) };
+  assert.equal(checkDrawing(sticks).ok, false, 'straight stick lines are not a realistic drawing');
 });
 
 test('no keys: a clear 503, and GET lists no providers', async () => {
@@ -54,7 +66,7 @@ test('Groq first; when Groq fails, Gemini answers', async () => {
 });
 
 test('a bad drawing is sent back once with the reason', async () => {
-  process.env.GROQ_API_KEY = 'test-groq'; delete process.env.GEMINI_API_KEY;
+  process.env.GROQ_API_KEY = 'test-groq'; delete process.env.GEMINI_API_KEY; delete process.env.ANTHROPIC_API_KEY;
   const realFetch = globalThis.fetch; const prompts = [];
   globalThis.fetch = async (url, init) => {
     const body = JSON.parse(init.body); prompts.push(body.messages[1].content);
@@ -67,6 +79,7 @@ test('a bad drawing is sent back once with the reason', async () => {
     assert.equal(r.code, 200); assert.equal(prompts.length, 2);
     assert.match(prompts[1], /could not be used/);
     assert.match(prompts[0], /right atrium/, 'the heart prompt lists the parts a textbook figure shows');
+    assert.match(prompts[0], /realistic 2D illustration/);
   } finally { globalThis.fetch = realFetch; }
 });
 

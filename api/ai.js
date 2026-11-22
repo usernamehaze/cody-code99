@@ -151,7 +151,8 @@ export default async function handler(req, res) {
       out = await ask(guidePrompt({ notes: body.notes, fileName: body.fileName }), checkGuide, file, { effort: 'medium', order: ['gemini', 'groq', 'claude'], lang });
     } else if (body.task === 'draw') {
       if (!String(body.question || '').trim()) return res.status(400).json({ ok: false, error: 'Ask Cody what to draw.' });
-      out = await ask(drawPrompt({ question: body.question, context: body.context }), checkDrawing, null, { lang });
+      // a realistic drawing is many careful curves: Claude draws best, then Gemini; Groq thinks harder if it gets there
+      out = await ask(drawPrompt({ question: body.question, context: body.context }), checkDrawing, null, { lang, order: ['claude', 'gemini', 'groq'], effort: 'medium' });
     } else if (body.task === 'chat') {
       const msgs = Array.isArray(body.messages) ? body.messages : [];
       if (!msgs.length || !String((msgs[msgs.length - 1] || {}).text || '').trim()) return res.status(400).json({ ok: false, error: 'Say something to Cody first.' });

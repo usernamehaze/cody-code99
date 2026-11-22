@@ -46,10 +46,10 @@ export function render(root) {
           <label>Cody's language <small>for answers, reviewers, quizzes and drawings</small><select name="lang">${LANGS.map(([k, n]) => `<option value="${k}" ${(s.lang || 'en') === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
           <button class="btn primary">Save my details</button>
         </form>
-        <div class="card class-card"><h2 class="eyebrow">Your class</h2>${classCard(s)}<p class="class-off muted" hidden>Classes aren’t switched on yet. Whoever runs this Cody site needs to connect the class database in Vercel: <b>Storage → Create Database → Upstash (free)</b>, connect it to the project, then redeploy.</p></div>
+        <div class="card class-card"><h2 class="eyebrow">Your class</h2>${classCard(s)}<p class="class-signin muted" hidden>Study rooms are for signed-in students, so everyone in a class is a real classmate. Sign in above to join or make one.</p><p class="class-off muted" hidden>Classes aren’t switched on yet. Whoever runs this Cody site needs to connect the class database in Vercel: <b>Storage → Create Database → Upstash (free)</b>, connect it to the project, then redeploy.</p></div>
         <div class="card prem-card"><h2 class="eyebrow">Premium</h2>${premiumCard(s)}</div>
         <div class="card"><h2 class="eyebrow">Your data</h2>
-          <p class="muted">${s.account ? 'Cody keeps a copy in your account so it follows you to any device.' : 'Everything Cody keeps stays on this device.'} If you join a class, only your name, points and what you post in the class room are shared with it.</p>
+          <p class="muted">${s.account ? 'Everything you do in Cody is saved to your account, and only you can see it.' : 'Everything Cody keeps stays on this device. Sign in to save it to your account.'} Classmates never see your reviewers, chats or scores. In a study room they only see your name, your points and what you choose to post or share there.</p>
           <div class="row"><button class="btn small fresh">Start fresh</button>${s.account ? '<button class="btn small ghost del-acct">Delete my account</button>' : ''}</div>
           <p class="legal"><a class="link" href="/privacy.html">Privacy</a> · <a class="link" href="/terms.html">Terms</a></p>
         </div>
@@ -57,6 +57,7 @@ export function render(root) {
     </section>`;
   wireClass(root);
   // (classes need the class database on the server: say so before anyone types a code)
+  if (!s.class && !s.account) Acc.config().then((c) => { if (!c.google || !root.isConnected) return; const card = root.querySelector('.class-card'); if (!card) return; card.querySelectorAll('form, .err').forEach((f) => { f.hidden = true; }); card.querySelector('.class-signin').hidden = false; });
   if (!s.class) Class.enabled().then((on) => { if (on || !root.isConnected) return; const c = root.querySelector('.class-card'); if (!c) return; c.querySelectorAll('form').forEach((f) => { f.hidden = true; }); c.querySelector('.class-off').hidden = false; });
   const f = root.querySelector('.settings');
   f.addEventListener('submit', (e) => { e.preventDefault(); s.name = f.name.value.trim(); s.exam = { subject: f.subject.value.trim(), date: f.date.value }; s.lang = f.lang.value; S.save(); toast('Saved. Cody updated your plan.'); render(root); });
@@ -70,7 +71,7 @@ function classCard(s) {
   if (s.class) return `<p class="muted">You are in <b>${esc(s.class.name)}</b>. Classmates join with this code:</p>
     <p class="class-code">${esc(s.class.code)}</p>
     <div class="row"><button class="btn small copy">Copy code</button><a class="btn small primary" href="#/room">Open the class room</a><button class="btn ghost small leave">Leave class</button></div>`;
-  return `<p class="muted">See your real classmates on the leaderboard. Your teacher (or one student) makes the class, then everyone joins with its code. Only your name and points are shared.</p>
+  return `<p class="muted">Study with your real classmates. Your teacher (or one student) makes the class, then everyone joins with its code. Classmates see only your name, your points and what you share in the study room.</p>
     <form class="inline join"><input name="code" maxlength="6" placeholder="Class code" aria-label="Class code" autocomplete="off"><button class="btn">Join class</button></form>
     <form class="inline make" style="margin-top:10px"><input name="cname" maxlength="40" placeholder="New class name, e.g. Grade 9 Rizal" aria-label="New class name" style="text-transform:none"><button class="btn">Make a class</button></form>
     <p class="err" aria-live="polite"></p>`;
@@ -127,12 +128,12 @@ function wireAccount(root) {
   }
   const out = root.querySelector('.sign-out');
   if (out) out.addEventListener('click', async () => {
-    if (await askSure({ title: 'Sign out?', body: 'Your things stay on this device and in your account. Premium colours switch off until you sign in again.', action: 'Sign out', danger: false })) { Acc.signOut(); applyTheme(null); render(root); }
+    if (await askSure({ title: 'Sign out?', body: 'Everything is saved to your account first, then removed from this device, so the next person who uses it can’t see your things. Sign in again to get it all back.', action: 'Sign out', danger: false })) busy(out, 'Saving and signing out…', async () => { await Acc.signOut(); applyTheme(null); location.hash = '#/'; location.reload(); });
   });
   const del = root.querySelector('.del-acct');
   if (del) del.addEventListener('click', async () => {
-    if (!(await askSure({ title: 'Delete your Cody account?', body: `The copy kept for ${s.account.email} and Premium are deleted from Cody's server. What's on this device stays until you tap Start fresh. This can't be undone.`, action: 'Delete my account' }))) return;
-    busy(del, 'Deleting…', async () => { try { await Acc.deleteAccount(); applyTheme(null); toast('Your account is deleted'); render(root); } catch (e) { toast(e.message); } });
+    if (!(await askSure({ title: 'Delete your Cody account?', body: `Everything Cody keeps for ${s.account.email} is deleted, from Cody's server and from this device. Classes you joined keep only the messages you posted there. This can't be undone.`, action: 'Delete my account' }))) return;
+    busy(del, 'Deleting…', async () => { try { await Acc.deleteAccount(); applyTheme(null); location.hash = '#/'; location.reload(); } catch (e) { toast(e.message); } });
   });
   const get = root.querySelector('.get-prem');
   if (get) get.addEventListener('click', () => busy(get, 'Unlocking…', async () => { try { await Acc.unlockPremium(); toast('Premium is on!'); render(root); } catch (e) { toast(e.message); } }));

@@ -17,6 +17,7 @@ import { apply as applyTheme } from './theme.js';
 import * as Bubble from './bubble.js';
 import { toast } from './ui.js';
 import * as Class from './classroom.js';
+import * as Welcome from './welcome.js';
 
 const NAV = [
   ['home', 'Home', '#/', ICON.home], ['chat', 'Ask Cody', '#/chat', ICON.chat], ['reviewers', 'My reviewers', '#/reviewers', ICON.file], ['draw', 'Draw with Cody', '#/draw', ICON.pencil],
@@ -62,6 +63,10 @@ function route() {
     label: () => label.render(main, id), chat: () => chat.render(main, id, params), room: () => room.render(main), plan: () => plan.render(main), import: () => importer.render(main, params),
   };
   cleanup = (views[name || 'home'] || views.home)() || null;
+  if (k === 'home' && S.get().guest && !Acc.me()) {
+    main.insertAdjacentHTML('afterbegin', `<div class="guest-bar" role="note">${Mascot.mascot('think', 34)}<p><b>You’re trying Cody without an account.</b> Your work is only on this device. Sign in to save your progress.</p><button type="button" class="btn small guest-signin">Sign in</button></div>`);
+    const g = main.querySelector('.guest-signin'); g.addEventListener('click', () => Acc.signIn().catch((e) => toast(e.message)));
+  }
   streakCard();
   main.focus({ preventScroll: true });
   window.scrollTo(0, 0);
@@ -74,12 +79,16 @@ S.onChange(streakCard);
 Class.watch();
 Bubble.mount();
 // coming back from Google's sign-in page: finish it before showing any screen
+// then, if nobody is signed in: onboarding and the sign-in screen, before any of Cody shows
 Acc.finishSignIn().then((done) => {
   if (done && done.ok) toast(`Signed in. Welcome${done.name ? ', ' + done.name : ''}!`);
-  if (done && done.error) toast(done.error);
   if (Acc.premium()) applyTheme(S.get().theme);
   Acc.watch();
-  window.addEventListener('hashchange', () => { route(); Bubble.update(); });
-  route(); Bubble.update();
+  const start = () => {
+    window.addEventListener('hashchange', () => { if (!document.body.classList.contains('gated')) { route(); Bubble.update(); } });
+    route(); Bubble.update();
+  };
+  if (Welcome.needed()) Welcome.show({ message: (done && done.error) || (S.get().owner ? 'Your sign-in ran out. Please sign in again.' : ''), onDone: start });
+  else { if (done && done.error) toast(done.error); start(); }
 });
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !window.CODY_NATIVE) navigator.serviceWorker.register('/sw.js').catch(() => {});

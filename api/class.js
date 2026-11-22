@@ -16,6 +16,7 @@ import { kv, kvMode, kvPipe } from '../lib/kv.js';
 import { limited } from '../lib/limit.js';
 import { cors } from '../lib/cors.js';
 import { unsafe, SAFE_MSG } from '../lib/safe.js';
+import { readSession, signInOn } from '../lib/session.js';
 
 const KEEP = 60 * 60 * 24 * 180; // a class is kept 180 days after its last change
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I mix-ups
@@ -102,6 +103,8 @@ export default async function handler(req, res) {
   if (b.action === 'poll' ? limited(req, 'room-poll:' + String(b.id || '').slice(0, 40), 3000) : !['post', 'voice', 'audio'].includes(b.action) && limited(req, 'class', 400)) return res.status(429).json({ ok: false, error: 'Too many tries. Wait a few minutes.' });
   const code = String(b.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   try {
+    // study rooms are for signed-in students (when sign-in is switched on): no anonymous visitors in a class
+    if ((b.action === 'create' || b.action === 'join') && signInOn() && !readSession(b.session)) return res.status(401).json({ ok: false, error: 'Sign in to make or join a study room.', signIn: true });
     if (b.action === 'create') {
       if (limited(req, 'class-create', 20)) return res.status(429).json({ ok: false, error: 'You made a lot of classes. Try again later.' });
       const className = clean(b.className, 40) || 'My class';
@@ -117,6 +120,8 @@ export default async function handler(req, res) {
     }
     if (!okCode(code)) return res.status(400).json({ ok: false, error: 'A class code has 6 letters and numbers.' });
     if (!(await kv('EXISTS', keys(code).meta))) return res.status(404).json({ ok: false, error: 'No class has that code. Check it with your teacher.' });
+    // only members see what's inside a room: its board, messages, drawings, shared reviewers and voice messages
+    if (['board', 'poll', 'audio'].includes(b.action) && !(okId(b.id) && (await kv('HMGET', keys(code).names, b.id))[0])) return res.status(403).json({ ok: false, error: 'Join the class first.', notMember: true });
     if (b.action === 'board') return res.status(200).json({ ok: true, board: await board(code, b.id) });
     if (b.action === 'poll') return res.status(200).json({ ok: true, ...(await poll(code, b)) });
     if (b.action === 'audio') {

@@ -34,7 +34,8 @@ school computer. **Teachers** can use the drawings in class.
 | **Ask Cody bubble** | A floating Cody on every screen. Tap it to ask a quick question without leaving the page; **Open in Ask Cody** carries the talk into the full chat. |
 | **Any language** | On **Me**, pick the language Cody answers in (English, Filipino, Hiligaynon, Cebuano and more). Chats, reviewers and study guides come back in that language; the screens stay in English. |
 | **Stop and clear** | While Cody is thinking, Send turns into **Stop**. **Clear chat** empties a chat (it asks first). |
-| **Sign in with Google** | Optional. Your reviewers, cards and points are backed up to your account and follow you to another phone or computer. **Delete my account** removes the copy on the server. |
+| **Onboarding and sign-in** | Three short cards introduce Cody, then **Continue with Google** saves everything the student does (reviewers, quizzes, flashcards, chats, points, settings) to their account, on any device. **Try without an account** keeps work on that device only. |
+| **Private by design** | Nobody else can see a student's things. Classmates see only their name, points and what they post or share in a study room. Study rooms need sign-in, and only members can read one (knowing the code isn't enough). Signing out saves to the account, then clears the device, so a shared phone never shows the last student's work. **Delete my account** removes it everywhere. |
 | **Premium** (free for the demo) | **Make it yours:** pick an accent colour and a background, with a live preview. **Reviewer mastery:** each reviewer shows how well you know it (quiz 45%, flashcards learned 40%, Label it! 15%) and what to do next. |
 | **Chrome extension** | Highlight text on any page (an article, a handout, a Google Doc), right-click, and choose *Make a Cody reviewer* or *Draw it with Cody*. The popup can also turn a whole page into a reviewer. |
 | **Works offline** | Draw with Cody has four built-in example drawings (the human heart, the water cycle, photosynthesis, the plant cell) that work with no internet and no AI key. After the first visit the app opens offline. |
@@ -192,7 +193,7 @@ Install `Cody.apk` on an Android phone (allow *Install unknown apps*), or upload
 6. Click **Deploy**. Vercel serves the files as they are and runs `api/ai.js` and `api/class.js` as serverless functions.
 7. **Builds for Milestone 3:** upload `Cody-extension.zip` to Google Drive (set to *Anyone with the link*).
 
-**Demo login:** none needed. Signing in with Google is optional, and Premium is free for the demo. It opens empty: no made-up scores, streaks, reviewers or classmates.
+**Demo login:** sign in with any Google account, or tap **Try without an account** on the sign-in screen. Premium is free for the demo. It opens empty: no made-up scores, streaks, reviewers or classmates.
 Every number on Home is the student's own, and each empty screen shows Cody and what to do first.
 **Study plan → Start fresh** clears everything on the device.
 

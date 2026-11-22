@@ -114,6 +114,18 @@ quiz with 3 choices or crashes on a missing field.
   **reviewer mastery**: quiz 45% + flashcards learned 40% + Label it! 15%.
 - The privacy page and terms list every service Cody uses and what it sends there.
 
+### Onboarding, sign-in and keeping each student's things private (`js/welcome.js`, `lib/session.js`)
+- On a new device: three onboarding cards, then the sign-in screen. Nothing of Cody shows until the student
+  signs in or taps **Try without an account**.
+- **Each account sees only its own copy:** the server finds the copy by the Google account inside Cody's signed
+  session, never by anything the browser says, so one student can't ask for another's.
+- **Shared phones:** the device remembers a private *owner label* for whose things it holds. Signing out saves,
+  then wipes the device. If a different account signs in, the device starts clean and never mixes the two.
+- **Study rooms** need a signed-in student to make or join, and the server only answers members when anyone
+  reads a room's board, messages or voice messages. Knowing a class code is not enough.
+- Tests: `tests/account.test.js` (Ben can't load Ana's things) and `tests/class.test.js` (strangers and
+  signed-out visitors are refused).
+
 ### Scan, languages, the bubble and Stop
 - **Scan:** each photo is shrunk in the browser (to about 1400 px) and up to 8 go to the AI in one request.
 - **Languages:** the student's choice is added to every AI prompt as a rule ("answer in Hiligaynon").
@@ -124,7 +136,7 @@ quiz with 3 choices or crashes on a missing field.
 - **Android app:** the same web app wrapped with **Capacitor** (`android/`, `scripts/build-mobile.mjs`).
 - **Chrome extension:** `extension/`. It reads a page only when the student clicks, and hands text to Cody
   inside the link's `#`, which browsers never send to a server.
-- **Tests:** `npm test` (17 server tests, with a fake AI so no keys are needed).
+- **Tests:** `npm test` (19 server tests, with a fake AI so no keys are needed).
 
 ## 4. Questions judges may ask (practise answering in your own words)
 
@@ -140,6 +152,7 @@ quiz with 3 choices or crashes on a missing field.
 | What does it cost to run? | Groq and Gemini free tiers, Vercel and Upstash free plans; Claude is an optional paid backup |
 | How does the class room update live? | Polling every 2.5 s, because serverless functions can't keep a live connection |
 | How do flashcards decide what comes back? | Leitner boxes: 0, 1, 3, 7, 16, 35, 70 days |
+| How do you keep one student's data from another? | The server picks the copy by the signed session, not by what the browser asks for; signing out wipes the device; rooms only answer members |
 | Why sign in with Google and not a password? | No passwords to store or leak; Google checks who you are; the server verifies Google's signature itself |
 | What is Premium? | Free for the demo; a way Cody could earn money later (themes and mastery), while the learning itself stays free |
 | What would you add next? | A live voice call in the room, a teacher view of class progress, more offline drawings |

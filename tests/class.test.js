@@ -25,7 +25,8 @@ test('make a class, two students join, the board ranks them and hides ids', asyn
   const up = await call({ action: 'sync', code, id: 'bbbbbbbbbbbb', name: 'Juan', points: 1500 });
   assert.equal(up.body.board[0].name, 'Juan');
   await call({ action: 'leave', code, id: 'bbbbbbbbbbbb' });
-  assert.equal((await call({ action: 'board', code })).body.board.length, 1);
+  assert.equal((await call({ action: 'board', code, id: 'aaaaaaaaaaaa' })).body.board.length, 1);
+  assert.equal((await call({ action: 'board', code, id: 'bbbbbbbbbbbb' })).code, 403, 'someone who left can’t read the board');
 });
 
 test('bad codes are refused', async () => {
@@ -58,8 +59,13 @@ test('the class room: post, poll from the start and from a point, undo, voice, s
   const v = await call({ action: 'voice', code, id: 'roomaaaaaaaa', audio: 'AAAA', type: 'audio/webm;codecs=opus', secs: 3 });
   const later = await call({ action: 'poll', code, id: 'roomaaaaaaaa', since: first.body.next, base: first.body.base });
   assert.deepEqual(later.body.ops.map((o) => o.k), ['undo', 'voice']); assert.equal(later.body.ops[1].idx, v.body.idx);
-  const audio = await call({ action: 'audio', code, vid: later.body.ops[1].vid });
+  const audio = await call({ action: 'audio', code, id: 'roombbbbbbbb', vid: later.body.ops[1].vid });
   assert.equal(audio.body.audio, 'AAAA');
+  // someone who only knows the code sees nothing inside the room
+  for (const peek of [{ action: 'poll', since: -1 }, { action: 'board' }, { action: 'audio', vid: later.body.ops[1].vid }]) {
+    assert.equal((await call({ ...peek, code })).code, 403, peek.action + ' with no id');
+    assert.equal((await call({ ...peek, code, id: 'strangerxxxx' })).code, 403, peek.action + ' by a stranger');
+  }
 });
 
 test('finds the database keys even with a prefix Vercel added', async () => {
@@ -78,4 +84,18 @@ test('the class room stays friendly: rude words are refused, schoolwork is not',
   const r = await call({ action: 'post', code, id: 'safeaaaaaaaa', op: { k: 'msg', t: 'ang gago mo' } });
   assert.equal(r.code, 400); assert.match(r.body.error, /friendly/);
   assert.equal((await call({ action: 'join', code, id: 'safebbbbbbbb', name: 'tangina', points: 0 })).code, 400);
+});
+
+test('with Google sign-in on, only signed-in students can make or join a study room', async () => {
+  process.env.GOOGLE_CLIENT_ID = 'test.apps.googleusercontent.com';
+  try {
+    const { makeSession } = await import('../lib/session.js');
+    assert.equal((await call({ action: 'create', className: 'X' })).code, 401);
+    assert.equal((await call({ action: 'create', className: 'X', session: 'forged.token' })).code, 401);
+    const session = makeSession({ sub: '1234567890', email: 'a@b.c', name: 'A' });
+    const made = await call({ action: 'create', className: 'Signed in', session });
+    assert.equal(made.code, 200);
+    assert.equal((await call({ action: 'join', code: made.body.code, id: 'signedaaaaaa', name: 'A' })).code, 401);
+    assert.equal((await call({ action: 'join', code: made.body.code, id: 'signedaaaaaa', name: 'A', session })).code, 200);
+  } finally { delete process.env.GOOGLE_CLIENT_ID; }
 });

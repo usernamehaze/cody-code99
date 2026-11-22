@@ -24,7 +24,7 @@ const NAV = [
   ['quiz', 'Quiz', '#/quiz', ICON.quiz], ['flashcards', 'Flashcards', '#/flashcards', ICON.cards], ['label', 'Label it! game', '#/label', ICON.game], ['room', 'Class room', '#/room', ICON.users], ['plan', 'Study plan', '#/plan', ICON.plan],
 ];
 const TABS = [['home', 'Home', '#/', ICON.home], ['reviewers', 'Reviewers', '#/reviewers', ICON.file], ['chat', 'Ask', '#/chat', ICON.chat], ['label', 'Games', '#/label', ICON.game], ['plan', 'Me', '#/plan', ICON.me]];
-const SECTION = { reviewer: 'reviewers', import: 'reviewers' };
+const SECTION = { reviewer: 'reviewers', guide: 'reviewers', import: 'reviewers' };
 
 const main = document.getElementById('main');
 let cleanup = null;
@@ -58,7 +58,7 @@ function route() {
   document.querySelectorAll('[data-k]').forEach((a) => a.classList.toggle('on', a.dataset.k === k));
   main.className = 'main page-' + k;
   const views = {
-    home: () => home.render(main), reviewers: () => reviewers.renderList(main, params), reviewer: () => reviewers.renderOne(main, id),
+    home: () => home.render(main), reviewers: () => reviewers.renderList(main, params), reviewer: () => reviewers.renderOne(main, id), guide: () => reviewers.renderGuide(main, id),
     draw: () => draw.render(main, id, params), quiz: () => quiz.render(main, id), flashcards: () => cards.render(main, id),
     label: () => label.render(main, id), chat: () => chat.render(main, id, params), room: () => room.render(main), plan: () => plan.render(main), import: () => importer.render(main, params),
   };

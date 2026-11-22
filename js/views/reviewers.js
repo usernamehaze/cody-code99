@@ -242,15 +242,15 @@ export function renderGuide(root, id) {
   const at = text.search(/^##\s/m), intro = at < 0 ? text : text.slice(0, at);
   const parts = at < 0 ? [] : text.slice(at).split(/^(?=##\s)/m).map((sec) => { const nl = sec.indexOf('\n'); return { h: sec.slice(3, nl < 0 ? undefined : nl).trim(), body: nl < 0 ? '' : sec.slice(nl + 1).replace(/\n-{3,}\s*$/,'').trim() }; }).filter((p) => p.h);
   const lead = intro.replace(/^#\s.*$/m, '').replace(/^-{3,}\s*$/gm, '').trim();
-  const name = (h) => h.replace(/[*_`]/g, '');
+  const name = (h) => h.replace(/[*_`]/g, '').replace(/^\s*\d+[.)]\s*/, ''); // (Cody numbers the sections itself: the AI sometimes skips one)
   root.innerHTML = `
     <a class="back-link" href="#/reviewer/${esc(r.id)}">‹ Back to the reviewer</a>
     ${header(r.title, 'Study guide · tap a section to open it')}
     <div class="guide-bar"><button class="btn small save-pdf" aria-label="Save as PDF">${ICON.file} PDF</button><button class="btn small save-docx" aria-label="Save as a Word file">${ICON.file} Word</button><button class="btn small copy-guide" aria-label="Copy the reviewer">${ICON.copy} Copy</button></div>
-    ${parts.length > 2 ? `<nav class="toc" aria-label="Sections">${parts.map((p, i) => `<button type="button" class="chip" data-i="${i}">${esc(name(p.h).replace(/^\d+\.\s*/, ''))}</button>`).join('')}</nav>` : ''}
+    ${parts.length > 2 ? `<nav class="toc" aria-label="Sections">${parts.map((p, i) => `<button type="button" class="chip" data-i="${i}">${esc(name(p.h))}</button>`).join('')}</nav>` : ''}
     <article class="guide-doc guide-read">
       ${lead ? `<div class="g-lead">${md(lead)}</div>` : ''}
-      ${parts.length ? parts.map((p, i) => `<details class="g-sec" data-i="${i}"${i === 0 ? ' open' : ''}><summary><span>${esc(name(p.h))}</span></summary><div class="g-body">${md(p.body, { headings: 'doc' })}</div></details>`).join('') : md(text, { headings: 'doc' })}
+      ${parts.length ? parts.map((p, i) => `<details class="g-sec" data-i="${i}"${i === 0 ? ' open' : ''}><summary><span>${i + 1}. ${esc(name(p.h))}</span></summary><div class="g-body">${md(p.body, { headings: 'doc' })}</div></details>`).join('') : md(text, { headings: 'doc' })}
     </article>
     <div class="guide-end"><a class="btn primary" href="#/quiz/${esc(r.id)}">Done reading? Quiz me</a></div>`;
   wireSave(root, r);

@@ -248,7 +248,9 @@ svg { display: block; }
   .tabs a.on svg { stroke-width: 2.2; }
   .tabs a.on span { display: inline; }
   .tabs a:active { transform: scale(.95); }
-  @media (max-width: 360px) { .tabs a { min-width: 44px; padding: 0 9px; } .tabs a.on { padding: 0 12px 0 10px; } }
+  /* six tabs: a little narrower so they fit a 375px phone with the open tab's name showing */
+  .tabs a { min-width: 46px; padding: 0 10px; } .tabs a.on { padding: 0 14px 0 12px; gap: 6px; }
+  @media (max-width: 380px) { .tabs { gap: 0; padding: 6px; } .tabs a { min-width: 42px; padding: 0 8px; } .tabs a svg { width: 22px; height: 22px; } .tabs a.on { padding: 0 12px 0 10px; font-size: 14px; } }
   @media (prefers-reduced-transparency: reduce) { .tabs { background: var(--side); -webkit-backdrop-filter: none; backdrop-filter: none; } }
   .main { margin-left: 0; padding: 12px 16px calc(96px + env(safe-area-inset-bottom, 0px)); gap: 16px; }
   .page-head h1 { font-size: 27px; }
@@ -795,3 +797,52 @@ html:has(body.gated), body.gated { overflow: hidden; }
   .auth-brand { color: var(--ink); left: 26px; top: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { .fr *, .fr { animation: none !important; } }
+
+/* ---------- Me (js/views/plan.js), like Cassie's "You" page ---------- */
+.set-page, .set-sub { max-width: 620px; display: grid; gap: 0; }
+.set-sub { gap: 14px; }
+.set-me { display: flex; align-items: center; gap: 16px; margin: 4px 2px 16px; }
+.set-avatar { width: 64px; height: 64px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--teal); color: var(--teal-ink); font-size: 1.7rem; font-weight: 800; object-fit: cover; }
+.set-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.set-who b { font-size: 1.3rem; letter-spacing: -.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.set-who small { color: var(--muted); font-size: .88rem; overflow-wrap: anywhere; }
+.set-edit { min-height: 44px; display: inline-flex; align-items: center; padding: 0 18px; border-radius: 99px; border: 1px solid var(--line-2); background: var(--card); color: var(--ink); font-weight: 650; text-decoration: none; }
+.set-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 0 0 16px; }
+.set-stats > div { border-radius: 16px; padding: 12px 8px; text-align: center; background: var(--card); border: 1px solid var(--line); }
+.set-stats b { display: block; font-size: 1.45rem; letter-spacing: -.02em; color: var(--teal); }
+.set-stats small { display: block; margin-top: 2px; color: var(--muted); font-size: .76rem; line-height: 1.25; }
+.set-signin { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; padding: 12px 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--teal) 45%, var(--line)); background: color-mix(in srgb, var(--teal) 10%, var(--card)); color: var(--ink); text-decoration: none; }
+.set-signin span { flex: 1; display: grid; gap: 2px; } .set-signin small { color: var(--muted); font-size: .85rem; }
+.set-you-h { margin: 4px 4px 8px; font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.set-group { border-radius: 18px; background: var(--card); border: 1px solid var(--line); padding: 0 8px; margin: 0 0 16px; }
+.set-link { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+.set-links > .set-link:last-child { border-bottom: 0; }
+.set-ico { width: 36px; height: 36px; flex: none; border-radius: 11px; display: grid; place-items: center; background: color-mix(in srgb, var(--teal) 14%, var(--card)); color: var(--teal); }
+.set-ico svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.set-lt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.set-lt b { font-size: .98rem; font-weight: 650; } .set-lt small { color: var(--muted); font-size: .8rem; }
+.set-val { color: var(--muted); font-size: .85rem; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.set-chev { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--muted); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.set-out .set-lt, .set-danger .set-lt { align-items: center; text-align: center; }
+.set-danger { color: #f87171; }
+.set-danger small { color: var(--muted); }
+.help-steps { margin: 0; padding-left: 20px; display: grid; gap: 10px; line-height: 1.5; }
+@media (hover: hover) { .set-link:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); } }
+
+/* ---------- study rooms: the lobby (no room yet) and the card on Home ---------- */
+.lobby { display: grid; gap: 14px; max-width: 640px; }
+.lobby-hero { display: flex; gap: 16px; align-items: center; }
+.lobby-hero h2 { margin: 0 0 6px; font-size: 20px; }
+.lobby-list { margin: 0; padding-left: 18px; color: var(--muted); line-height: 1.6; }
+.lobby-form h2 { margin: 0 0 4px; font-size: 18px; }
+.lobby-form p { margin: 0 0 10px; }
+.lobby-form label { display: grid; gap: 6px; margin-bottom: 10px; }
+.lobby-form .inline { display: flex; gap: 8px; }
+.lobby-form .inline input { flex: 1; min-width: 0; }
+.lobby-form input[name=code] { text-transform: uppercase; letter-spacing: .12em; font-weight: 700; }
+@media (max-width: 420px) { .lobby-hero { flex-direction: column; text-align: center; } .lobby-list { text-align: left; } }
+.room-cta { display: flex; align-items: center; gap: 14px; margin: 0 0 16px; color: var(--ink); text-decoration: none; border-color: color-mix(in srgb, var(--teal) 40%, var(--line)); background: color-mix(in srgb, var(--teal) 8%, var(--card)); }
+.room-cta > svg { width: 30px; height: 30px; flex: none; color: var(--teal); }
+.room-cta span:not(.room-cta-go) { flex: 1; display: grid; gap: 2px; }
+.room-cta small { color: var(--muted); }
+.room-cta-go { flex: none; padding: 9px 16px; border-radius: 99px; border: 1.5px solid var(--teal); color: var(--teal); font-weight: 700; }

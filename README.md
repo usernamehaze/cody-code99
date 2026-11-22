@@ -34,6 +34,23 @@ school computer. **Teachers** can use the drawings in class.
 | **Works offline** | Draw with Cody has four built-in example drawings (the human heart, the water cycle, photosynthesis, the plant cell) that work with no internet and no AI key. After the first visit the app opens offline. |
 | **Phone and computer** | One web app, a sidebar on computers and a bottom tab bar on phones. Install it to the home screen (it's a PWA). |
 
+## Learning outcomes
+
+After using Cody on a topic, a student can:
+1. **Explain** its key terms in their own words (study guide, key terms, Ask Cody).
+2. **Name and place** the parts of its diagram from memory (Draw with Cody, Label it!).
+3. **Answer** exam-style questions and say why the answer is right (quiz with "Why").
+4. **Remember** it long term, by reviewing at growing intervals (flashcards with spaced repetition).
+
+## How Cody follows the Code 99 rules
+
+| Rule | How Cody meets it |
+|---|---|
+| Accepted output | A web app (also an Android app and a Chrome extension) with educational games that have defined learning outcomes (above) |
+| Any language or framework; low-code discouraged | Hand-written HTML, CSS and JavaScript, with small Node.js server functions. No low-code or no-code tools |
+| Safe for a general audience: no NSFW, excessive violence, or controversial political or religious themes | Safety rules are in every AI prompt (`lib/tasks.js`): no explicit content or graphic violence, and political or religious topics taught only neutrally from the student's notes. The class room refuses explicit words and insults in English and Filipino (`lib/safe.js`). Self-harm words get a care response with the NCMH crisis line (`js/care.js`) |
+| AI-generated code allowed; the team must explain and defend it | AI coding tools assisted development. [How Cody works](docs/how-cody-works.md) explains every part and lists questions judges may ask |
+
 ## Architecture
 
 ```

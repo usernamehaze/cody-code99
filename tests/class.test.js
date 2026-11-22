@@ -68,3 +68,14 @@ test('finds the database keys even with a prefix Vercel added', async () => {
   try { assert.equal(kvMode(), 'redis'); }
   finally { delete process.env.VERCEL; delete process.env.STORAGE_KV_REST_API_URL; delete process.env.STORAGE_KV_REST_API_TOKEN; }
 });
+
+test('the class room stays friendly: rude words are refused, schoolwork is not', async () => {
+  const { unsafe } = await import('../lib/safe.js');
+  for (const bad of ['you are so gago', 'F.U.C.K this', 'putang ina mo', 'b1tch', 'tangina naman']) assert.ok(unsafe(bad), bad);
+  for (const ok of ['sexual reproduction in plants', 'Charles Dickens wrote it', 'the class is at 3', 'Tagalog: tanghalian', 'assessment tomorrow']) assert.ok(!unsafe(ok), ok);
+  const made = await call({ action: 'create', className: 'Safe test' }); const code = made.body.code;
+  await call({ action: 'join', code, id: 'safeaaaaaaaa', name: 'Ana', points: 0 });
+  const r = await call({ action: 'post', code, id: 'safeaaaaaaaa', op: { k: 'msg', t: 'ang gago mo' } });
+  assert.equal(r.code, 400); assert.match(r.body.error, /friendly/);
+  assert.equal((await call({ action: 'join', code, id: 'safebbbbbbbb', name: 'tangina', points: 0 })).code, 400);
+});

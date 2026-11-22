@@ -39,7 +39,7 @@ function parseJSON(text) {
 }
 
 const groq = (prompt, file, opts = {}) => eachModel(GROQ_MODELS(), async (model) => {
-  const body = { model, temperature: 0.4, max_tokens: 12000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] };
+  const body = { model, temperature: 0.4, max_tokens: 12000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM() }, { role: 'user', content: prompt }] };
   if (/gpt-oss/.test(model)) body.reasoning_effort = opts.effort || 'low'; // (quick answers; a study guide thinks harder)
   const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST', signal: AbortSignal.timeout(30000),
@@ -59,7 +59,7 @@ async function geminiOnce(model, prompt, file) {
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST', signal: AbortSignal.timeout(file ? 45000 : 30000),
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env('GEMINI_API_KEY') },
-    body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } }),
+    body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM() }] }, contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } }),
   });
   if (!r.ok) throw await fail('Gemini', r);
   const j = await r.json();
@@ -76,7 +76,7 @@ async function claude(prompt, file) {
   content.push({ type: 'text', text: prompt });
   // fallbacks: 'default' lets the API rerun a declined request on a fallback model inside the same call
   const msg = await claudeClient.beta.messages.create({
-    model: CLAUDE_MODEL(), max_tokens: 16000, system: SYSTEM,
+    model: CLAUDE_MODEL(), max_tokens: 16000, system: SYSTEM(),
     output_config: { effort: 'low' },
     betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
     messages: [{ role: 'user', content }],

@@ -557,3 +557,4 @@ body:has(.sure-back) .cm-bubble { opacity: 0 !important; }
 .rm.sys { display: block; }
 .rm.sys .link { color: var(--teal); text-decoration: underline; margin-left: 4px; }
 .room-board .clear { margin-left: auto; }
+.goal { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--raised); color: #cbd5e1; font-size: 15px; } .goal b { color: var(--teal); }

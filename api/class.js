@@ -15,6 +15,7 @@
 import { kv, kvMode, kvPipe } from '../lib/kv.js';
 import { limited } from '../lib/limit.js';
 import { cors } from '../lib/cors.js';
+import { unsafe, SAFE_MSG } from '../lib/safe.js';
 
 const KEEP = 60 * 60 * 24 * 180; // a class is kept 180 days after its last change
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I mix-ups
@@ -104,6 +105,7 @@ export default async function handler(req, res) {
     if (b.action === 'create') {
       if (limited(req, 'class-create', 20)) return res.status(429).json({ ok: false, error: 'You made a lot of classes. Try again later.' });
       const className = clean(b.className, 40) || 'My class';
+      if (unsafe(className)) return res.status(400).json({ ok: false, error: 'Pick a friendlier class name.' });
       for (let tries = 0; tries < 6; tries++) {
         const c = Array.from({ length: 6 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
         if (await kv('EXISTS', keys(c).meta)) continue;
@@ -123,6 +125,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, ...JSON.parse(v) });
     }
     if (!okId(b.id)) return res.status(400).json({ ok: false, error: 'Bad student id' });
+    if ((b.action === 'join' || b.action === 'sync') && unsafe(b.name)) return res.status(400).json({ ok: false, error: 'Pick a friendlier name in Study plan, then try again.' });
     if (b.action === 'join') {
       if ((await kv('ZCARD', keys(code).pts)) >= 200) return res.status(403).json({ ok: false, error: 'This class is full (200 students).' });
       await put(code, b.id, b.name, b.points);
@@ -143,6 +146,7 @@ export default async function handler(req, res) {
         await kv('EXPIRE', `class:${code}:v:${vid}`, KEEP);
         op = { k: 'voice', vid, s: Math.max(1, Math.min(60, Math.round(+b.secs || 1))) };
       } else op = cleanOp(b.op);
+      if (op && unsafe(op.t, op.q, op.r && op.r.title)) return res.status(400).json({ ok: false, error: SAFE_MSG });
       if (!op) return res.status(400).json({ ok: false, error: 'That could not be shared.' });
       return res.status(200).json({ ok: true, idx: await push(code, { ...op, n: name, u: b.id, at: Date.now() }) });
     }

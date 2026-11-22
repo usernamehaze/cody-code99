@@ -1,11 +1,12 @@
 import * as S from '../store.js';
 import { ask } from '../ai.js';
-import { readNotes } from '../notes.js';
+import { readNotes, shrinkImage } from '../notes.js';
 import { mount, clean } from '../draw.js';
 import { esc, header, ICON, toast, askSure, busy, plural } from '../ui.js';
 import { say, emptyState } from '../mascot.js';
 import { md } from '../md.js';
 import { saveGuidePdf } from '../pdf.js';
+import { premium } from '../account.js';
 
 // match a term ("Atria") to a part of the drawing ("Right atrium"), so Draw it and the quiz can point at it
 const stem = (w) => w.toLowerCase().replace(/[^a-z ]/g, '').replace(/(ia|ium|ae|es|s)$/, '');
@@ -21,18 +22,19 @@ export function linkParts(rev) {
 }
 
 // one upload: read the file, ask Cody for the reviewer, then (in the background) for its drawing
-export async function makeReviewer({ file, text, name }, onStatus) {
+export async function makeReviewer({ file, text, name, pages }, onStatus) {
   const t0 = Date.now();
   onStatus('Reading your notes…');
-  const got = file ? await readNotes(file) : { name: name || 'Pasted notes', pages: 1, notes: text };
+  const got = pages ? { name: `Scanned notes (${pages.length} page${pages.length === 1 ? '' : 's'})`, pages: pages.length, files: pages }
+    : file ? await readNotes(file) : { name: name || 'Pasted notes', pages: 1, notes: text };
   onStatus('Cody is writing your reviewer…');
-  const { data } = await ask('reviewer', { notes: got.notes, file: got.file, fileName: got.name });
+  const { data } = await ask('reviewer', { notes: got.notes, file: got.file, files: got.files, fileName: got.name });
   const rev = { ...data, source: { name: got.name, pages: got.pages }, seconds: Math.max(1, Math.round((Date.now() - t0) / 1000)), drawing: null };
   rev.guideState = 'writing';
   S.addReviewer(rev);
   const refresh = () => { if (location.hash.startsWith('#/reviewer/' + rev.id)) window.dispatchEvent(new HashChangeEvent('hashchange')); };
   // the full study guide (like a printed reviewer) is longer, so it is written in the background too
-  ask('guide', { notes: got.notes, file: got.file, fileName: got.name }).then(({ data: g }) => {
+  ask('guide', { notes: got.notes, file: got.file, files: got.files, fileName: got.name }).then(({ data: g }) => {
     const r = S.reviewer(rev.id); if (!r) return;
     r.guide = g.markdown; r.guideState = 'done'; S.save(); refresh();
   }).catch(() => { const r = S.reviewer(rev.id); if (r) { r.guideState = 'failed'; S.save(); refresh(); } });
@@ -60,6 +62,10 @@ function uploadZone() {
       <b>Drop a PDF, a photo or paste your notes</b>
       <span class="muted">Cody reads it and makes your reviewer</span>
     </label>
+    <div class="scan">
+      <label class="btn scan-btn">${ICON.image} Scan with camera<input type="file" accept="image/*" capture="environment" multiple hidden></label>
+      <div class="scan-tray" hidden><div class="scan-pages"></div><div class="row"><label class="btn small">Add a page<input type="file" accept="image/*" capture="environment" multiple hidden class="scan-more"></label><button type="button" class="btn small primary scan-go">Make my reviewer</button><button type="button" class="btn small ghost scan-clear">Remove all</button></div></div>
+    </div>
     <details class="paste"><summary>Paste notes instead</summary>
       <textarea rows="6" placeholder="Paste your notes here…"></textarea>
       <button class="btn primary small go-paste">Make my reviewer</button>
@@ -81,6 +87,24 @@ function wireUpload(root) {
     finally { working = false; zone.classList.remove('busy'); }
   };
   input.addEventListener('change', () => input.files[0] && run({ file: input.files[0] }));
+  // Pic scan: photos of notebook pages, up to 8, read together by Cody
+  const pages = [], tray = root.querySelector('.scan-tray'), list = root.querySelector('.scan-pages');
+  const showPages = () => {
+    tray.hidden = !pages.length;
+    list.innerHTML = pages.map((p, i) => `<figure><img src="data:image/jpeg;base64,${p.data}" alt="Page ${i + 1}"><figcaption>Page ${i + 1}</figcaption><button type="button" class="x" data-i="${i}" aria-label="Remove page ${i + 1}">×</button></figure>`).join('');
+    list.querySelectorAll('.x').forEach((b) => b.addEventListener('click', () => { pages.splice(+b.dataset.i, 1); showPages(); }));
+    root.querySelector('.scan-go').textContent = `Make my reviewer (${plural(pages.length, 'page')})`;
+  };
+  const addPages = async (files) => {
+    for (const f of [...files]) {
+      if (pages.length >= 8) { status.textContent = 'That’s the most for one reviewer: 8 pages.'; break; }
+      try { pages.push({ type: 'image/jpeg', data: await shrinkImage(f, 1400) }); } catch (e) { status.textContent = 'Could not read one of those photos.'; }
+    }
+    showPages();
+  };
+  root.querySelectorAll('.scan-btn input, .scan-more').forEach((inp) => inp.addEventListener('change', () => { addPages(inp.files); inp.value = ''; }));
+  root.querySelector('.scan-clear').addEventListener('click', () => { pages.length = 0; showPages(); });
+  root.querySelector('.scan-go').addEventListener('click', () => { if (!pages.length || working) return; const go = root.querySelector('.scan-go'); busy(go, 'Reading your pages…', () => run({ pages: [...pages] })); });
   zone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
   ['dragover', 'dragenter'].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('over'); }));
   ['dragleave', 'drop'].forEach((ev) => zone.addEventListener(ev, () => zone.classList.remove('over')));
@@ -96,7 +120,7 @@ export function renderList(root, params) {
       <div class="card"><h2 class="eyebrow">Your reviewers</h2>
         ${s.reviewers.length ? '' : emptyState({ mood: 'wave', size: 100, title: 'No reviewers yet', text: 'Drop your notes on the right. Cody turns them into a study guide, key terms, a quiz and flashcards.' })}
         <ul class="list">${s.reviewers.map((r) => `
-          <li><a href="#/reviewer/${esc(r.id)}"><b>${esc(r.title)}</b><span class="muted">${esc(r.subject || '')} · ${plural(r.terms.length, 'term')} · ${plural(r.quiz.length, 'question')}</span></a></li>`).join('')}
+          <li><a href="#/reviewer/${esc(r.id)}"><b>${esc(r.title)}</b><span class="muted">${esc(r.subject || '')} · ${plural(r.terms.length, 'term')} · ${plural(r.quiz.length, 'question')}${premium() ? ` · ${S.mastery(r.id).pct}% mastered` : ''}</span></a></li>`).join('')}
         </ul></div>
       <div class="card"><h2 class="eyebrow">New reviewer</h2>${uploadZone()}</div>
     </section>`;
@@ -132,6 +156,7 @@ export function renderOne(root, id) {
         </div>
       </div>
       <div class="col">
+        <div class="card mastery-card"><h2 class="eyebrow">Reviewer mastery</h2>${masteryCard(r)}</div>
         <div class="card"><h2 class="eyebrow">Your notes</h2>${uploadZone()}
           ${r.source ? `<div class="file"><span class="pdf">${/\.pdf$/i.test(r.source.name) ? 'PDF' : 'TXT'}</span><div><b>${esc(r.source.name)}</b><span class="muted">${r.source.pages} page${r.source.pages === 1 ? '' : 's'} · read</span></div></div>` : ''}
         </div>
@@ -163,4 +188,13 @@ export function renderOne(root, id) {
   const copy = root.querySelector('.copy-guide');
   if (copy) copy.addEventListener('click', () => navigator.clipboard.writeText(r.guide || guideFrom(r)).then(() => toast('Study guide copied'), () => toast('Could not copy')));
   S.markPlan('read-' + r.id);
+}
+
+// Reviewer mastery (Premium): a ring with the score, what it's made of, and the next step
+function masteryCard(r) {
+  if (!premium()) return `<p class="muted">See how well you know this reviewer, from your quiz, flashcards and Label it! results, and what to study next.</p><a class="btn small" href="#/plan">Unlock with Premium (free during Code 99)</a>`;
+  const m = S.mastery(r.id), C = 2 * Math.PI * 34;
+  return `<div class="mastery"><svg viewBox="0 0 80 80" width="96" height="96" role="img" aria-label="${m.pct}% mastered"><circle cx="40" cy="40" r="34" fill="none" stroke="var(--line-2)" stroke-width="8"/><circle cx="40" cy="40" r="34" fill="none" stroke="var(--teal)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${(C * m.pct) / 100} ${C}" transform="rotate(-90 40 40)"/><text x="40" y="45" text-anchor="middle" class="m-pct">${m.pct}%</text></svg>
+    <div><b class="m-level">${m.level}</b><ul class="m-parts"><li>Quiz best: <b>${r.quiz.length ? m.quiz + '%' : '–'}</b></li><li>Cards learned: <b>${m.cards ? m.learned + '%' : '–'}</b></li>${m.label == null ? '' : `<li>Label it!: <b>${m.label >= 1 ? 'done' : m.label > 0 ? 'played once' : 'not yet'}</b></li>`}</ul></div></div>
+    ${m.next ? `<a class="btn small" href="${m.next.go}">Next: ${m.next.text}</a>` : '<p class="muted">You know this one well. Review the flashcards when they come due.</p>'}`;
 }

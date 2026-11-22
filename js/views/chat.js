@@ -47,7 +47,7 @@ export function render(root, id, params) {
   }
   if (!c) c = S.chats()[0];
   const rev = c.about && S.reviewer(c.about);
-  let photo = null, busy = false, listening = null;
+  let photo = null, waiting = false, listening = null, ctrl = null;
 
   root.innerHTML = `
     <section class="chat-wrap grow">
@@ -55,6 +55,7 @@ export function render(root, id, params) {
         <header class="chat-head">
           <div class="chat-title"><span class="chat-face">${mascot('happy', 44)}</span><div><h1>${esc(c.title === 'New chat' ? 'Ask Cody' : c.title)}</h1>
             <p class="sub">${rev ? `About your reviewer: <a class="link" href="#/reviewer/${esc(rev.id)}">${esc(rev.title)}</a>` : 'Your study buddy. Ask anything, any subject.'}</p></div></div>
+          <button type="button" class="btn small ghost clear-chat">${ICON.trash} Clear chat</button>
           <div class="modes" role="radiogroup" aria-label="How Cody answers">${MODES.map(([k, t, d]) => `<button class="mode ${c.mode === k ? 'on' : ''}" role="radio" aria-checked="${c.mode === k}" data-m="${k}" title="${d}">${t}</button>`).join('')}</div>
         </header>
         <div class="log" aria-live="polite"></div>
@@ -126,7 +127,7 @@ export function render(root, id, params) {
   function chips() {
     log.querySelectorAll('.followups').forEach((x) => x.remove());
     const last = c.msgs[c.msgs.length - 1];
-    if (!last || last.role !== 'cody' || last.care || busy) return;
+    if (!last || last.role !== 'cody' || last.care || waiting) return;
     const row = document.createElement('div'); row.className = 'followups';
     let items = [];
     const choices = last.text.match(/^\s*([A-D])[.)]\s+\S/gm);
@@ -147,7 +148,7 @@ export function render(root, id, params) {
   // ---------- sending ----------
   async function send(text) {
     text = String(text || '').trim();
-    if ((!text && !photo) || busy) return;
+    if ((!text && !photo) || waiting) return;
     if (!text) text = 'Help me with this.';
     if (!c.msgs.length) log.innerHTML = '';
     const sentPhoto = photo; photo = null; attached.hidden = true; attached.innerHTML = '';
@@ -161,13 +162,14 @@ export function render(root, id, params) {
       if (c.mode !== 'talk') setMode('talk', false);
       log.appendChild(bubble(c.msgs[c.msgs.length - 1])); bottom(); return;
     }
-    busy = true; setFace('think');
+    waiting = true; setFace('think');
+    ctrl = new AbortController(); stopMode(true);
     const typing = document.createElement('div'); typing.className = 'msg cody typing';
     typing.innerHTML = `<span class="avatar-cm">${mascot('think', 34)}</span><div class="body"><div class="text"><div class="thinking"><span></span><span></span><span></span></div></div></div>`;
     log.appendChild(typing); bottom();
     try {
       const context = rev ? `${rev.title}. ${rev.summary || ''} Key terms: ${rev.terms.map((t) => `${t.term}: ${t.meaning}`).join(' | ')}` : '';
-      const { data } = await ask('chat', { mode: c.mode, context, name: S.get().name, messages: c.msgs.map((m) => ({ role: m.role, text: m.text })), file: sentPhoto });
+      const { data } = await ask('chat', { mode: c.mode, context, name: S.get().name, messages: c.msgs.map((m) => ({ role: m.role, text: m.text })), file: sentPhoto }, { signal: ctrl.signal });
       const care = Care.fromAI(data.reply);
       if (care) S.addMsg(c, { role: 'cody', care: Care.langOf(text), aiWords: care.aiWords, text: Care.reply(Care.langOf(text), care.aiWords) });
       else S.addMsg(c, { role: 'cody', text: data.reply, draw: c.mode === 'talk' ? '' : data.draw });
@@ -176,10 +178,10 @@ export function render(root, id, params) {
       const count = root.querySelector('.chat-list li.on .muted'); if (count) count.textContent = plural(c.msgs.length, 'message');
       setFace(data.draw ? 'draw' : 'happy');
     } catch (e) {
-      S.addMsg(c, { role: 'cody', text: `Sorry, I could not answer that one. ${e.message}` });
-      setFace('oops');
+      if (e.name === 'AbortError') { S.addMsg(c, { role: 'cody', text: '*You stopped this answer.* Ask again, or ask it another way.' }); setFace('happy'); }
+      else { S.addMsg(c, { role: 'cody', text: `Sorry, I could not answer that one. ${e.message}` }); setFace('oops'); }
     } finally {
-      busy = false; typing.remove();
+      waiting = false; ctrl = null; stopMode(false); typing.remove();
       log.appendChild(bubble(c.msgs[c.msgs.length - 1])); chips(); bottom();
       setTimeout(() => setFace('happy'), 4000);
     }
@@ -187,7 +189,18 @@ export function render(root, id, params) {
   const grow = () => { box.style.height = 'auto'; box.style.height = Math.min(160, box.scrollHeight) + 'px'; };
   box.addEventListener('input', grow);
   box.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(box.value); } });
-  form.addEventListener('submit', (e) => { e.preventDefault(); send(box.value); });
+  form.addEventListener('submit', (e) => { e.preventDefault(); if (ctrl) { ctrl.abort(); return; } send(box.value); });
+  // while Cody thinks, Send becomes Stop
+  function stopMode(on) {
+    const b = form.querySelector('.send'); b.innerHTML = on ? ICON.stop : ICON.send; b.setAttribute('aria-label', on ? 'Stop Cody' : 'Send'); b.classList.toggle('stop', on);
+  }
+  // Clear chat: empties this chat (the red confirm)
+  root.querySelector('.clear-chat').addEventListener('click', async () => {
+    if (!c.msgs.length) return;
+    if (!(await askSure({ title: `Clear “${c.title === 'New chat' ? 'this chat' : c.title}”?`, body: `Its ${plural(c.msgs.length, 'message')} will be gone from this device. This can't be undone.`, action: 'Clear chat' }))) return;
+    if (ctrl) ctrl.abort();
+    c.msgs = []; c.title = 'New chat'; S.save(); render(root, c.id, new URLSearchParams());
+  });
 
   // photo of the problem (Gemini or Claude reads it)
   form.querySelector('input[type=file]').addEventListener('change', async (e) => {

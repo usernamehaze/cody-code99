@@ -13,7 +13,7 @@ if (!/^https:\/\/[^\s/]+$/.test(server)) throw new Error('CODY_URL must look lik
 
 fs.rmSync(www, { recursive: true, force: true });
 for (const d of ['js', 'css', 'icons']) fs.cpSync(path.join(root, d), path.join(www, d), { recursive: true });
-fs.copyFileSync(path.join(root, 'manifest.webmanifest'), path.join(www, 'manifest.webmanifest'));
+for (const f of ['manifest.webmanifest', 'privacy.html', 'terms.html']) fs.copyFileSync(path.join(root, f), path.join(www, f));
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8')
   .replace('<script type="module" src="/js/app.js">', `<script>window.CODY_API = ${JSON.stringify(server)}; window.CODY_NATIVE = true;</script>\n  <script type="module" src="/js/app.js">`);
 fs.writeFileSync(path.join(www, 'index.html'), html);

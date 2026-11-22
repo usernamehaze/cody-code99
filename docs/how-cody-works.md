@@ -33,7 +33,7 @@ Phone or computer browser                          Vercel (the server)
 
 - **No framework, no build step.** Plain HTML, CSS and JavaScript modules. It loads fast on old school
   computers and is easy to read. Every screen is one file in `js/views/`.
-- **The device keeps the student's data** (`js/store.js`, in the browser's `localStorage`). No accounts.
+- **The device keeps the student's data** (`js/store.js`, in the browser's `localStorage`). Signing in with Google is optional and keeps a backup copy.
   Only classes live on the server.
 - **The server only does what the browser can't do safely:** call the AI (the API keys must stay secret) and
   share a class between devices.
@@ -100,11 +100,27 @@ quiz with 3 choices or crashes on a missing field.
 ### Making it a PDF (`js/pdf.js`)
 - iPhones block websites from opening the print window, so Cody builds the PDF itself with **jsPDF**.
 
+### Accounts, Premium and privacy (`api/account.js`, `js/account.js`, `js/theme.js`, `privacy.html`)
+- **Sign in with Google** sends the student to Google. Google sends back a signed *ID token*. The server checks
+  its signature with Google's public keys, that it was made for Cody (`GOOGLE_CLIENT_ID`), that it hasn't
+  expired, and a one-time *nonce* (so an old token can't be replayed). Then it gives Cody its own signed session.
+- The backup is the same data as on the device, saved to Upstash under the Google account id, a few seconds
+  after something changes and when the app is closed. **Delete my account** removes it.
+- **Premium** is free for the demo: one tap turns it on. It unlocks the colour themes (CSS variables) and
+  **reviewer mastery**: quiz 45% + flashcards learned 40% + Label it! 15%.
+- The privacy page and terms list every service Cody uses and what it sends there.
+
+### Scan, languages, the bubble and Stop
+- **Scan:** each photo is shrunk in the browser (to about 1400 px) and up to 8 go to the AI in one request.
+- **Languages:** the student's choice is added to every AI prompt as a rule ("answer in Hiligaynon").
+- **The bubble** (`js/bubble.js`) saves its talk as a normal chat, so it can continue in Ask Cody.
+- **Stop** uses an `AbortController`, which cancels the request in the browser.
+
 ### Other parts
 - **Android app:** the same web app wrapped with **Capacitor** (`android/`, `scripts/build-mobile.mjs`).
 - **Chrome extension:** `extension/`. It reads a page only when the student clicks, and hands text to Cody
   inside the link's `#`, which browsers never send to a server.
-- **Tests:** `npm test` (15 server tests, with a fake AI so no keys are needed).
+- **Tests:** `npm test` (17 server tests, with a fake AI so no keys are needed).
 
 ## 4. Questions judges may ask (practise answering in your own words)
 
@@ -115,9 +131,11 @@ quiz with 3 choices or crashes on a missing field.
 | What if the AI is wrong? | Answers are checked for shape; prompts say to stick to the notes; study guides use the more accurate model; students should still check against their notes |
 | How did you use AI in building it? | AI coding tools helped write code, as the rules allow. The team decided the features, tested them, and can explain each part (this guide) |
 | What's original about it? | The drawing spec that powers 4 features, Label it! on AI drawings, the class room, and the Filipino context |
-| Is it safe for students? | Safety rules in every AI prompt, a class room word filter, the care response with NCMH 1553, no accounts, data kept on the device |
+| Is it safe for students? | Safety rules in every AI prompt, a class room word filter, the care response with NCMH 1553, accounts optional, a privacy page, data kept on the device unless they sign in |
 | Does it work without internet? | The app opens offline after the first visit, and the example drawings work offline; making new reviewers needs internet |
 | What does it cost to run? | Groq and Gemini free tiers, Vercel and Upstash free plans; Claude is an optional paid backup |
 | How does the class room update live? | Polling every 2.5 s, because serverless functions can't keep a live connection |
 | How do flashcards decide what comes back? | Leitner boxes: 0, 1, 3, 7, 16, 35, 70 days |
+| Why sign in with Google and not a password? | No passwords to store or leak; Google checks who you are; the server verifies Google's signature itself |
+| What is Premium? | Free for the demo; a way Cody could earn money later (themes and mastery), while the learning itself stays free |
 | What would you add next? | A live voice call in the room, a teacher view of class progress, more offline drawings |

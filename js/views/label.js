@@ -71,7 +71,7 @@ export function render(root, id) {
   }
   function finish() {
     finished = true; clearInterval(clock);
-    S.award(points, 3); S.markPlan('label-' + rev.id);
+    S.award(points, 3); S.markPlan('label-' + rev.id); S.labelDone(rev.id);
     const s = Math.round((Date.now() - t0) / 1000);
     $('.tip').innerHTML = `<b>All ${names.length} placed in ${s} seconds!</b><p>You earned ${points} points. You can now name and place ${names.length} parts of ${esc(rev.title.toLowerCase())}.</p><div class="row"><a class="btn primary small" href="#/quiz/${esc(rev.id)}">Quiz me next</a><button class="btn small again">Play again</button></div>`;
     $('.again').addEventListener('click', () => render(root, id));

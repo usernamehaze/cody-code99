@@ -30,6 +30,12 @@ school computer. **Teachers** can use the drawings in class.
 | **Flashcards** | Spaced repetition (Leitner boxes). Rate a card **Again**, **Almost** or **Got it**; missed cards come back sooner. The back of each card shows Cody's drawing with that part lit up. |
 | **Study plan** | Set your exam subject and date. Cody plans each day until then, with your weakest topic coming back more often. |
 | **Class room** | A teacher or student makes a class and shares its 6-letter code. Inside the class room, classmates **draw together** on one board, **chat**, send **voice messages**, **ask Cody for everyone** (one person asks, the whole class sees the answer), and **share reviewers** (a classmate saves a copy with its study guide, quiz and flashcards). It also shows who's here and a class leaderboard. Words that sound like a student is at risk never go to the class: they open a private chat with Cody's care response. |
+| **Scan with camera** | Take photos of up to 8 notebook or textbook pages in a row. Cody reads them all as one set of notes and makes one reviewer. |
+| **Ask Cody bubble** | A floating Cody on every screen. Tap it to ask a quick question without leaving the page; **Open in Ask Cody** carries the talk into the full chat. |
+| **Any language** | On **Me**, pick the language Cody answers in (English, Filipino, Hiligaynon, Cebuano and more). Chats, reviewers and study guides come back in that language; the screens stay in English. |
+| **Stop and clear** | While Cody is thinking, Send turns into **Stop**. **Clear chat** empties a chat (it asks first). |
+| **Sign in with Google** | Optional. Your reviewers, cards and points are backed up to your account and follow you to another phone or computer. **Delete my account** removes the copy on the server. |
+| **Premium** (free for the demo) | **Make it yours:** pick an accent colour and a background, with a live preview. **Reviewer mastery:** each reviewer shows how well you know it (quiz 45%, flashcards learned 40%, Label it! 15%) and what to do next. |
 | **Chrome extension** | Highlight text on any page (an article, a handout, a Google Doc), right-click, and choose *Make a Cody reviewer* or *Draw it with Cody*. The popup can also turn a whole page into a reviewer. |
 | **Works offline** | Draw with Cody has four built-in example drawings (the human heart, the water cycle, photosynthesis, the plant cell) that work with no internet and no AI key. After the first visit the app opens offline. |
 | **Phone and computer** | One web app, a sidebar on computers and a bottom tab bar on phones. Install it to the home screen (it's a PWA). |
@@ -81,8 +87,10 @@ Browser (plain HTML/CSS/JS, no build step)              Vercel
   answer is sent back once with the reason.
 - **Fallback between providers.** Text goes to Groq first (free and fast). If Groq is busy, Gemini answers,
   then Claude. PDFs that are scans, and photos, go to Gemini or Claude, which can read images.
-- **Private by default.** There are no accounts. Your notes go only to the AI provider that reads them, and
-  everything Cody keeps (reviewers, cards, points) stays in your browser. If you join a class, only your
+- **Private by default.** An account is optional. Your notes go only to the AI provider that reads them, and
+  everything Cody keeps (reviewers, cards, points) stays in your browser, unless you sign in with Google, which
+  keeps a backup copy in your account (Google's sign-in is checked on the server; Cody never sees a password).
+  See [privacy.html](privacy.html) and [terms.html](terms.html). If you join a class, only your
   name and points go to its board. Each device has a private id that the board never shows.
 - **The extension needs no site access.** It reads a page only when you click (`activeTab`), and hands the
   text to Cody inside the link's `#` part, which browsers never send to a server. Cody removes it from the
@@ -177,10 +185,14 @@ Install `Cody.apk` on an Android phone (allow *Install unknown apps*), or upload
 4. For the class room and leaderboard: in the project, open **Storage → Create → Upstash (Redis)**, free plan, and connect it.
    That adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` for you. Without it, classes can't be made on the live site.
    The room checks for news every 2.5 seconds per student while it's open; Upstash's free plan suits a class or a demo.
-5. Click **Deploy**. Vercel serves the files as they are and runs `api/ai.js` and `api/class.js` as serverless functions.
-6. **Builds for Milestone 3:** upload `Cody-extension.zip` to Google Drive (set to *Anyone with the link*).
+5. For **Sign in with Google** (optional): in [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
+   **Create credentials → OAuth client ID → Web application**. Add `https://cody-code99.vercel.app` under *Authorized
+   JavaScript origins* and `https://cody-code99.vercel.app/` under *Authorized redirect URIs*. Put the client ID in Vercel as
+   `GOOGLE_CLIENT_ID`, and a long random text as `SESSION_SECRET`. Accounts also need the Upstash database from step 4.
+6. Click **Deploy**. Vercel serves the files as they are and runs `api/ai.js` and `api/class.js` as serverless functions.
+7. **Builds for Milestone 3:** upload `Cody-extension.zip` to Google Drive (set to *Anyone with the link*).
 
-**Demo login:** none needed. Cody has no accounts. It opens empty: no made-up scores, streaks, reviewers or classmates.
+**Demo login:** none needed. Signing in with Google is optional, and Premium is free for the demo. It opens empty: no made-up scores, streaks, reviewers or classmates.
 Every number on Home is the student's own, and each empty screen shows Cody and what to do first.
 **Study plan → Start fresh** clears everything on the device.
 

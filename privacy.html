@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cody Privacy</title><meta name="theme-color" content="#0e1626"><link rel="icon" href="/icons/logo.svg" type="image/svg+xml"><style>
+:root{--bg:#0e1626;--card:#152039;--line:#24324f;--ink:#f1f5f9;--muted:#94a3b8;--teal:#2dd4bf;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#e2e8f0;font:17px/1.65 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:32px max(16px,env(safe-area-inset-left,0px)) 64px max(16px,env(safe-area-inset-right,0px))}
+a{color:var(--teal)}h1{color:var(--ink);font-size:34px;line-height:1.2;margin:18px 0 4px}h2{color:var(--ink);font-size:21px;margin:34px 0 8px}
+.updated{color:var(--muted);margin:0 0 20px}.short{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:6px 22px}
+li{margin:6px 0}b{color:var(--ink)}.back{display:inline-flex;align-items:center;gap:8px;font-weight:700;text-decoration:none;min-height:44px}
+footer{margin-top:40px;color:var(--muted);font-size:14px}
+</style></head><body><main>
+<a class="back" href="/#/plan">← Back to Cody</a>
+<h1>Cody: Privacy</h1>
+<p class="updated">Last updated: 22 November 2026</p>
+<p>Cody is a free study helper made by a student team for the Code 99: CSS Hackathon 2027. It works as a website, a phone app and a Chrome extension. This page says, in plain words, what Cody keeps, what it sends to other companies, and how to delete your things.</p>
+
+<h2>The short version</h2>
+<div class="short"><ul>
+<li><b>Cody uses AI.</b> To make a reviewer or answer you, Cody sends your notes or question to an AI service run by another company. They are named below.</li>
+<li><b>Most of your things stay on your device:</b> your reviewers, flashcards, chats, points and settings live in your own browser.</li>
+<li><b>Signing in is your choice.</b> If you continue with Google, Cody keeps a copy of your things in your account so they follow you to other devices.</li>
+<li><b>We never sell your data.</b> Cody has no ads and no tracking.</li>
+</ul></div>
+
+<h2>What stays on your device</h2>
+<p>These are saved in your own browser (its local storage). They don't go to us unless you sign in.</p>
+<ul>
+<li>Your reviewers, study guides, drawings and flashcards, and how well you know each card.</li>
+<li>Your chats with Cody. If you added a photo, the chat remembers only that there was one, not the photo.</li>
+<li>Your name, exam subject and date, points, streak, study plan, quiz scores, Cody's language and your colours.</li>
+</ul>
+
+<h2>What Cody sends to other companies</h2>
+<p>When you make a reviewer, ask Cody, or tap Draw it, your notes or question (and any photo or scanned page) go through Cody's server to one of these AI services, which makes the answer. Each company follows its own privacy rules.</p>
+<ul>
+<li><b>Groq:</b> writes most of Cody's answers, quizzes and drawings.</li>
+<li><b>Google Gemini:</b> reads photos, scanned pages and PDFs, writes study guides, and answers when Groq is busy.</li>
+<li><b>Anthropic (Claude):</b> a backup when the other two can't answer.</li>
+<li><b>Vercel:</b> runs Cody's website and server.</li>
+<li><b>Upstash:</b> stores accounts and classes for Cody's server (see below).</li>
+<li><b>Google sign-in:</b> if you continue with Google, Google tells Cody your email, first name, profile picture and a Google account number.</li>
+<li><b>Google Fonts and cdnjs (Cloudflare):</b> deliver Cody's font and the PDF reader, so they see your internet address when the page loads.</li>
+<li><b>Your browser:</b> voice typing uses your browser's own speech service (Google in Chrome, Apple in Safari). Read aloud is made on your device.</li>
+</ul>
+
+<h2>Your files, photos and voice</h2>
+<ul>
+<li>A PDF is read on your own device, and only its words are sent. A scanned PDF or a photo is sent whole, so the AI can read it.</li>
+<li>Cody's server passes your notes and photos on and keeps no copy. Its error log only says which kind of task failed and why, never your notes.</li>
+<li>Voice messages you send in a class room are kept, because your classmates play them (see below).</li>
+</ul>
+
+<h2>What Cody's server keeps</h2>
+<ul>
+<li><b>If you sign in:</b> your Google account number, email and first name, a copy of your Cody things (reviewers, cards, chats, points and settings, without photos), whether Premium is on, and when you last signed in. Kept until you delete your account.</li>
+<li><b>If you make or join a class:</b> the class name and code, each member's name and points, and a random number made by each device. In the class room: messages, drawings, voice messages, questions asked to Cody there and its answers, and shared reviewers. A class is kept for 180 days after its last activity, then deleted.</li>
+<li><b>Fair-use counts:</b> how many requests came from an internet address in the last hour, kept only in the server's short-lived memory.</li>
+</ul>
+
+<h2>How to delete your things</h2>
+<ul>
+<li><b>On your device:</b> Me → Your data → <b>Start fresh</b>.</li>
+<li><b>Your account:</b> Me → Your data → <b>Delete my account</b> deletes the copy and Premium from Cody's server at once.</li>
+<li><b>A class:</b> Leave class takes your name and points off its leaderboard. Posts in a class room stay until the class is deleted (180 days after its last activity). To have a post removed sooner, contact us.</li>
+</ul>
+
+<h2>Keeping it safe</h2>
+<ul>
+<li>Cody's AI is told to stay appropriate for students, and to teach political and religious topics only neutrally.</li>
+<li>The class room refuses rude words and insults. Only members can post, and names come from Cody's server, so nobody can post as someone else.</li>
+<li>If a student writes that they want to hurt themselves, Cody answers with care and the NCMH Crisis Hotline (1553), without sending those words to the AI or to the class.</li>
+<li>Your Google sign-in is checked on Cody's server against Google's own keys. Cody never sees your Google password.</li>
+</ul>
+
+<h2>Children</h2>
+<p>Cody is made for students. If you are under 13, use Cody with a parent's or teacher's okay. Google accounts are for ages 13 and up, so younger students can use Cody without signing in.</p>
+
+<h2>What Cody does not do</h2>
+<ul><li>Sell or share your data for ads.</li><li>Track you across other websites.</li><li>Keep your photos or files on its server.</li><li>Use your notes to train AI. (The AI companies above follow their own rules.)</li></ul>
+
+<h2>Changes</h2>
+<p>If this page changes, the date at the top changes too.</p>
+
+<h2>Contact</h2>
+<p>Open an issue on Cody's public GitHub page: <a href="https://github.com/usernamehaze/cody-code99/issues">github.com/usernamehaze/cody-code99/issues</a>. Don't post anything private there; ask us for another way to reach you.</p>
+<footer>Cody · Code 99: CSS Hackathon 2027 · <a href="/terms.html">Terms</a></footer>
+</main></body></html>

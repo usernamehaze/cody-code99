@@ -2,6 +2,7 @@ import * as S from '../store.js';
 import { ask } from '../ai.js';
 import { mount, clean } from '../draw.js';
 import { sampleFor } from '../samples.js';
+import { figureFor } from '../drawings.js';
 import { linkParts } from './reviewers.js';
 import { esc, header, LOGO, ICON, speak, hush, toast } from '../ui.js';
 import { say } from '../mascot.js';
@@ -32,7 +33,7 @@ export function render(root, id, params) {
   const q = params.get('q') || '';
   let spec = rev && rev.drawing ? rev.drawing : null;
   let asked = rev ? `Explain ${rev.title.toLowerCase()}` : q;
-  if (!spec && q) { const sm = sampleFor(q); if (sm) spec = sm.drawing; }
+  if (!spec && q) { const sm = sampleFor(q); spec = sm ? sm.drawing : figureFor(q); }
   if (!spec && !q && last) { spec = last.spec; asked = last.question; }
 
   root.innerHTML = `

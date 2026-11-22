@@ -135,3 +135,15 @@ test('study guides ask Gemini first; chat asks Groq first', async () => {
     assert.deepEqual(seen, ['gemini', 'groq']);
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('a dragon is the hand-drawn figure, and it passes the same check as an AI drawing', async () => {
+  const { figureFor } = await import('../js/drawings.js');
+  const { clean } = await import('../js/draw.js');
+  for (const q of ['dragon', 'Draw a dragon', 'parts of a dragon']) assert.equal(figureFor(q).title, 'Dragon', q);
+  assert.equal(figureFor('the human heart'), null);
+  const dragon = figureFor('dragon');
+  assert.equal(checkDrawing(dragon).ok, true, checkDrawing(dragon).why);
+  const kept = clean(JSON.stringify(dragon));
+  assert.equal(kept.solid, true); assert.equal(kept.parts.find((p) => p.id === 'legs').z, 5, 'stacking order survives clean()');
+  assert.equal(kept.parts.reduce((n, p) => n + p.shapes.length, 0), dragon.parts.reduce((n, p) => n + p.shapes.length, 0), 'no shape is dropped');
+});

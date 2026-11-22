@@ -71,6 +71,15 @@ quiz with 3 choices or crashes on a missing field.
   so they never cover the drawing.
 - **One spec powers four features:** Draw with Cody (animated), Label it! (the anchors become drop spots),
   the quiz's "Why" (one part highlighted) and the back of a flashcard.
+- **Realistic, not boxes:** each part is a shaded outline made of smooth curves plus thin detail lines
+  (scales, folds, bones). The server's `checkDrawing()` sends back, once, a drawing made mostly of rectangles,
+  circles or straight sticks. Drawings go to Claude first, then Gemini, then Groq.
+- **Stacking:** a part can have a `z` number, so the animation follows teaching order while the picture is
+  layered back to front (a leg in front of the body, spines behind it). A `solid` figure uses opaque shading,
+  so a part in front hides the lines behind it.
+- **Hand-drawn figures (`js/drawings.js`):** some things are hard for an AI to draw accurately, so Cody ships
+  them drawn by hand. Asking for a dragon always gives the hand-drawn one (crocodile-like head, horns, S-curved
+  neck, bat-like wings with finger bones, legs that bend like a cat's, a spade-tipped tail, spines), with no AI call.
 
 ### Flashcards and spaced repetition (`js/store.js`, `js/views/cards.js`)
 - Each card sits in a **Leitner box** (0 to 6). "Got it" moves it up a box; the next review is

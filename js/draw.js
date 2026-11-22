@@ -2,15 +2,22 @@
    A drawing is a small JSON spec (made by hand in samples.js, or written by the AI and checked by clean()):
      { title, parts: [{ id, label, say, color, anchor: [x, y], shapes: [...] }] }
    in a 400 x 300 picture. Shapes: path {d}, arrow {d}, line {x1,y1,x2,y2}, circle {cx,cy,r},
-   ellipse {cx,cy,rx,ry}, rect {x,y,width,height,rx}, text {x,y,text}; optional sw (stroke width) and dash.
+   ellipse {cx,cy,rx,ry}, rect {x,y,width,height,rx}, text {x,y,text}; optional sw (stroke width), dash, and fill
+   (a soft shade of the part's colour inside a closed outline, so it reads as a real 2D drawing).
    Parts are drawn one at a time like a pen, in teaching order. Names sit in the margins, each with a line
    to its part's anchor. The same spec powers Draw with Cody, Label it!, the quiz's "Why" and card backs.
    (Adapted from Cassie's livedraw.js, made smaller: 2D only.) */
 
+import { mount3d, clean3d } from './draw3d.js';
+
 const NS = 'http://www.w3.org/2000/svg';
 const PALETTE = ['#60a5fa', '#f7687f', '#2dd4bf', '#fbbf24', '#a78bfa', '#4ade80', '#fb923c', '#e2e8f0'];
 const W = 400, H = 300;
-const PATH_OK = /^[MmLlHhVvCcSsQqTtAaZz0-9.,\s+-]{1,2000}$/;
+const FILL = '.28'; // how strongly a filled outline is shaded
+// a figure marked "solid" (the hand-drawn ones) is shaded with an opaque colour, so a part in front hides what is behind it
+const BOARD = [16, 26, 44];
+const solidOf = (hex) => { let h = hex.slice(1); if (h.length < 6) h = h.split('').map((c) => c + c).join(''); const c = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); return '#' + c.map((v, i) => Math.round(BOARD[i] + (v - BOARD[i]) * 0.3).toString(16).padStart(2, '0')).join(''); };
+const PATH_OK = /^[MmLlHhVvCcSsQqTtAaZz0-9.,\s+-]{1,4000}$/;
 const reduced = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const num = (v, lo, hi, d = 0) => { const n = +v; return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
 const words = (t, max) => String(t == null ? '' : t).replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -21,7 +28,7 @@ const svgEl = (tag, attrs = {}) => { const n = document.createElementNS(NS, tag)
 function cleanShape(s) {
   if (!s || typeof s !== 'object') return null;
   const t = String(s.t || s.type || '').toLowerCase();
-  const base = { t, sw: num(s.sw, 1, 8, 3), dash: !!s.dash };
+  const base = { t, sw: num(s.sw, 0.8, 8, 3), dash: !!s.dash, fill: !!s.fill && t !== 'arrow' && t !== 'line' && t !== 'text' };
   if ((t === 'path' || t === 'arrow') && typeof s.d === 'string' && PATH_OK.test(s.d)) return { ...base, d: s.d };
   if (t === 'arrow' && ['x1', 'y1', 'x2', 'y2'].every((k) => Number.isFinite(+s[k]))) return { ...base, d: `M ${num(s.x1, -10, 410)} ${num(s.y1, -10, 310)} L ${num(s.x2, -10, 410)} ${num(s.y2, -10, 310)}` };
   if (t === 'line') return { ...base, x1: num(s.x1, -10, 410), y1: num(s.y1, -10, 310), x2: num(s.x2, -10, 410), y2: num(s.y2, -10, 310) };
@@ -35,14 +42,15 @@ export function clean(raw) {
   let s = raw;
   if (typeof s === 'string') { const a = s.indexOf('{'), b = s.lastIndexOf('}'); if (a < 0 || b <= a) return null; try { s = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; } }
   if (!s || typeof s !== 'object' || !Array.isArray(s.parts)) return null;
+  if (s.mode === '3d') return clean3d(s); // (a 3D model: see draw3d.js)
   const parts = s.parts.slice(0, 12).map((p, i) => {
-    const shapes = (Array.isArray(p && p.shapes) ? p.shapes : []).slice(0, 16).map(cleanShape).filter(Boolean);
+    const shapes = (Array.isArray(p && p.shapes) ? p.shapes : []).slice(0, 28).map(cleanShape).filter(Boolean);
     const a = Array.isArray(p && p.anchor) && p.anchor.length === 2 ? [num(p.anchor[0], 0, W), num(p.anchor[1], 0, H)] : null;
-    return { id: words(p && p.id, 40) || 'p' + i, label: words(p && p.label, 32), say: words(p && p.say, 320), color: color(p && p.color, i), anchor: a, shapes };
+    return { id: words(p && p.id, 40) || 'p' + i, label: words(p && p.label, 32), say: words(p && p.say, 320), color: color(p && p.color, i), anchor: a, shapes, ...(Number.isFinite(+(p && p.z)) && p.z !== null && p.z !== '' ? { z: num(p.z, -20, 20) } : {}) };
   }).filter((p) => p.shapes.length);
   if (!parts.length) return null;
   parts.forEach((p) => { if (!p.anchor) p.anchor = centreOf(p.shapes[0]); });
-  return { title: words(s.title, 80) || 'Drawing', parts };
+  return { title: words(s.title, 80) || 'Drawing', parts, ...(s.solid === true ? { solid: true } : {}) };
 }
 function centreOf(sh) {
   if (sh.cx != null) return [sh.cx, sh.cy];
@@ -53,9 +61,10 @@ function centreOf(sh) {
   return v.length >= 2 ? [num(v[0], 0, W), num(v[1], 0, H)] : [W / 2, H / 2];
 }
 
-function shapeNode(s, p, headId) {
+function shapeNode(s, p, headId, solid) {
   const stroke = { fill: 'none', stroke: p.color, 'stroke-width': s.sw, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
   if (s.dash) stroke['stroke-dasharray'] = '7 6';
+  if (s.fill) { stroke.fill = solid ? solidOf(p.color.slice(0, 7)) : p.color; stroke['fill-opacity'] = '0'; stroke['data-fill'] = solid ? '1' : FILL; } // (shaded in once its outline is drawn)
   let n;
   if (s.t === 'path' || s.t === 'arrow') { n = svgEl('path', { d: s.d, ...stroke }); if (s.t === 'arrow') n.setAttribute('marker-end', `url(#${headId})`); }
   else if (s.t === 'line') n = svgEl('line', { x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2, ...stroke });
@@ -83,6 +92,7 @@ function layoutLabels(items, top = 14, bottom = H - 14) {
    opts: numbered (label "1 Sun"), labels ('steps' shows each name as its part is drawn, 'all', 'none'),
          targets (ids that get a dashed drop spot, for Label it!), onStep(i), speed (ms per stroke) */
 export function mount(el, rawSpec, opts = {}) {
+  if (rawSpec && rawSpec.mode === '3d') return mount3d(el, rawSpec, opts); // (a 3D model, with the same controller)
   const spec = rawSpec && rawSpec.parts && rawSpec.parts[0] && rawSpec.parts[0].anchor ? rawSpec : clean(rawSpec);
   el.innerHTML = '';
   if (!spec) { el.textContent = 'Cody could not draw this one.'; return null; }
@@ -93,10 +103,11 @@ export function mount(el, rawSpec, opts = {}) {
   svg.appendChild(defs);
   const groups = spec.parts.map((p, i) => {
     const g = svgEl('g', { class: 'dr-part', 'data-id': p.id });
-    p.shapes.forEach((s) => { const n = shapeNode(s, p, `${id}h${i}`); if (n) g.appendChild(n); });
-    svg.appendChild(g);
+    p.shapes.forEach((s) => { const n = shapeNode(s, p, `${id}h${i}`, spec.solid); if (n) g.appendChild(n); });
     return g;
   });
+  // drawn in teaching order, but stacked back to front by each part's "z" (a leg in front of the body, spines behind it)
+  groups.map((g, i) => [g, Number.isFinite(spec.parts[i].z) ? spec.parts[i].z : i]).sort((a, b) => a[1] - b[1]).forEach(([g]) => svg.appendChild(g));
   const labelLayer = svgEl('g', { class: 'dr-labels' }); svg.appendChild(labelLayer);
   const targetLayer = svgEl('g', { class: 'dr-targets' }); svg.appendChild(targetLayer);
   el.appendChild(svg);
@@ -143,7 +154,7 @@ export function mount(el, rawSpec, opts = {}) {
     const g = groups[i];
     g.style.visibility = state === 'hidden' ? 'hidden' : 'visible';
     g.style.opacity = state === 'dim' ? '.35' : '1';
-    for (const n of g.children) { n.style.transition = ''; n.style.strokeDashoffset = ''; if (!n.getAttribute('stroke-dasharray')) n.style.strokeDasharray = ''; n.style.opacity = ''; }
+    for (const n of g.children) { n.style.transition = ''; n.style.strokeDashoffset = ''; if (!n.getAttribute('stroke-dasharray')) n.style.strokeDasharray = ''; n.style.opacity = ''; if (n.dataset.fill) n.style.fillOpacity = state === 'hidden' ? '0' : n.dataset.fill; }
   };
   async function drawGroup(i, my) {
     const g = groups[i];
@@ -153,7 +164,8 @@ export function mount(el, rawSpec, opts = {}) {
     for (const n of kids) {
       if (my !== runId) return;
       const dashed = n.getAttribute('stroke-dasharray') || n.tagName === 'text';
-      if (dashed || reduced() || !n.getTotalLength) { n.style.transition = 'opacity .35s'; n.style.opacity = '1'; await wait(250); continue; }
+      if (n.dataset.fill) n.style.fillOpacity = '0';
+      if (dashed || reduced() || !n.getTotalLength) { n.style.transition = 'opacity .35s'; n.style.opacity = '1'; if (n.dataset.fill) n.style.fillOpacity = n.dataset.fill; await wait(250); continue; }
       let L = 200; try { L = Math.max(8, Math.ceil(n.getTotalLength())); } catch (e) { /* not drawable */ }
       const ms = Math.min(1100, Math.max(300, L * (opts.speed || 3.2)));
       n.style.strokeDasharray = L; n.style.strokeDashoffset = L; n.style.opacity = '1';
@@ -162,6 +174,7 @@ export function mount(el, rawSpec, opts = {}) {
       n.style.strokeDashoffset = '0';
       await wait(ms);
       n.style.transition = ''; n.style.strokeDasharray = ''; n.style.strokeDashoffset = '';
+      if (n.dataset.fill) { n.style.transition = 'fill-opacity .4s'; n.style.fillOpacity = n.dataset.fill; }
     }
   }
   const wait = (ms) => new Promise((r) => { timer = setTimeout(r, ms); });

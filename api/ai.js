@@ -9,7 +9,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { limited } from '../lib/limit.js';
 import { cors } from '../lib/cors.js';
-import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, checkDrawing, explainPrompt, checkExplain, chatPrompt, checkChat, guidePrompt, checkGuide } from '../lib/tasks.js';
+import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, drawMode, checkDrawing, explainPrompt, checkExplain, chatPrompt, checkChat, guidePrompt, checkGuide } from '../lib/tasks.js';
 
 const env = (k) => (process.env[k] || '').trim();
 // Providers retire model names over time, so each has a list, best first (the same lists Cassie uses).
@@ -105,7 +105,7 @@ async function ask(prompt, check, file, opts = {}) {
     let q = prompt + (opts.lang || '');
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const out = check(await p.run(q, file, opts));
+        const out = check(await p.run(q, file, opts), attempt);
         if (out && out.ok !== false) return { data: out.spec || out, by: name, skipped: tried };
         tried.push(`${name}: answer not usable${out && out.why ? ` (${out.why})` : ''}`);
         q = `${prompt}${opts.lang || ''}\n\nYour last answer could not be used${out && out.why ? `: ${out.why}` : ''}. Try again, following the shape exactly.`;
@@ -151,7 +151,11 @@ export default async function handler(req, res) {
       out = await ask(guidePrompt({ notes: body.notes, fileName: body.fileName }), checkGuide, file, { effort: 'medium', order: ['gemini', 'groq', 'claude'], lang });
     } else if (body.task === 'draw') {
       if (!String(body.question || '').trim()) return res.status(400).json({ ok: false, error: 'Ask Cody what to draw.' });
-      out = await ask(drawPrompt({ question: body.question, context: body.context }), checkDrawing, null, { lang });
+      // a realistic drawing is many careful curves: Claude draws best, then Gemini; Groq thinks harder if it gets there
+      // 2d: a flat drawing; 3d (asked for, and a real object): a model the student can turn, open and pull apart
+      const mode = drawMode(body.question, body.mode);
+      out = await ask(drawPrompt({ question: body.question, context: body.context, mode }), (j, attempt) => checkDrawing(j, attempt, body.question), null, { lang, order: ['claude', 'gemini', 'groq'], effort: 'medium' });
+      if (body.mode === '3d' && mode === '2d') out.flat = true; // (3D was asked for something soft or living: drawn flat, and the app says why)
     } else if (body.task === 'chat') {
       const msgs = Array.isArray(body.messages) ? body.messages : [];
       if (!msgs.length || !String((msgs[msgs.length - 1] || {}).text || '').trim()) return res.status(400).json({ ok: false, error: 'Say something to Cody first.' });

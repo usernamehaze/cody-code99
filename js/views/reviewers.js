@@ -203,7 +203,7 @@ export function renderOne(root, id) {
       <div class="tools-grid">
         <a class="tool primary" href="#/quiz/${esc(r.id)}">${ICON.quiz}<b>Quiz me</b><small>${plural(r.quiz.length, 'question')}</small></a>
         <a class="tool" href="#/flashcards/${esc(r.id)}">${ICON.cards}<b>Flashcards</b><small>${plural(nCards, 'card')}</small></a>
-        ${r.drawing ? `<a class="tool" href="#/label/${esc(r.id)}">${ICON.game}<b>Label it!</b><small>Name the parts</small></a>` : `<a class="tool" href="#/draw/${esc(r.id)}">${ICON.pencil}<b>Draw it</b><small>Cody draws it</small></a>`}
+        ${r.drawing && r.drawing.mode === '3d' ? `<a class="tool" href="#/draw/${esc(r.id)}">${ICON.pencil}<b>3D model</b><small>Turn it, open it</small></a>` : r.drawing ? `<a class="tool" href="#/label/${esc(r.id)}">${ICON.game}<b>Label it!</b><small>Name the parts</small></a>` : `<a class="tool" href="#/draw/${esc(r.id)}">${ICON.pencil}<b>Draw it</b><small>Cody draws it</small></a>`}
         <a class="tool" href="#/chat?about=${esc(r.id)}">${ICON.chat}<b>Ask Cody</b><small>About this reviewer</small></a>
       </div>
       ${r.drawing ? `<div class="card"><div class="board sm" id="rev-draw"></div></div>` : ''}

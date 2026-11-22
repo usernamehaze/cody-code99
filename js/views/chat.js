@@ -10,6 +10,7 @@ import { ask } from '../ai.js';
 import { md } from '../md.js';
 import { mount, clean } from '../draw.js';
 import { sampleFor } from '../samples.js';
+import { figureFor } from '../drawings.js';
 import { shrinkImage } from '../notes.js';
 import { mascot, say } from '../mascot.js';
 import { openDrawing } from './draw.js';
@@ -116,10 +117,11 @@ export function render(root, id, params) {
       const open = wrap.querySelector('.open'); open.hidden = false;
       open.addEventListener('click', () => openDrawing(spec, m.draw));
     };
-    const sample = sampleFor(m.draw);
+    const in3d = /\b3d\b/i.test(m.draw), sample = in3d ? null : sampleFor(m.draw), fig = in3d ? null : figureFor(m.draw);
     if (m.spec) show(m.spec);
     else if (sample) show(sample.drawing);
-    else ask('draw', { question: m.draw, context: m.text.slice(0, 600) })
+    else if (fig) show(fig);
+    else ask('draw', { question: m.draw.replace(/\s+in 3d$/i, ''), mode: in3d ? '3d' : '2d', context: m.text.slice(0, 600) })
       .then(({ data }) => { const sp = clean(data); if (!sp) throw new Error(); m.spec = sp; S.save(); if (wrap.isConnected) show(sp); })
       .catch(() => { wrap.querySelector('.board').innerHTML = '<p class="muted center">Cody could not draw this one. Try Draw with Cody.</p>'; });
     return wrap;

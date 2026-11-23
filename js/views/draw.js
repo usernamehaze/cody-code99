@@ -145,7 +145,8 @@ export function render(root, id, params) {
       if (my !== gen || !root.isConnected) return;
       const sp = clean(data); if (!sp) throw new Error('Cody could not draw that one. Try asking another way.');
       show(sp, q);
-      if (flat) toast('3D is for machines and objects. Living things and processes are clearer as a flat drawing, so Cody drew it flat.');
+      if (flat === 'failed') toast('Cody could not build that one in 3D this time, so here it is as a flat drawing. Try 3D again in a bit.');
+      else if (flat) toast('3D is for machines and objects. Living things and processes are clearer as a flat drawing, so Cody drew it flat.');
     })
       .catch((e) => { status(''); root.querySelector('#board').innerHTML = `<p class="muted center">${esc(e.message)}</p>`; });
   }

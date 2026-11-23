@@ -87,7 +87,11 @@ export function render(root, id, params) {
   function bubble(m, i) {
     const el = document.createElement('div');
     el.className = 'msg ' + (m.role === 'cody' ? 'cody' : 'me');
-    if (m.role !== 'cody') { el.innerHTML = `<div class="text">${m.photo ? '<span class="tag">📷 Photo</span> ' : ''}${esc(m.text)}</div>`; return el; }
+    if (m.role !== 'cody') {
+      // the photo you sent (older chats kept only a note that there was one)
+      const pic = typeof m.photo === 'string' ? `<img class="sent-photo" alt="Your photo" src="data:image/jpeg;base64,${m.photo}">` : m.photo ? '<span class="tag">Photo</span> ' : '';
+      el.innerHTML = `<div class="text">${pic}${esc(m.text)}</div>`; return el;
+    }
     el.innerHTML = `<span class="avatar-cm">${mascot(m.care ? 'happy' : 'happy', 34)}</span><div class="body"><div class="text"></div><div class="tools"></div></div>`;
     const text = el.querySelector('.text');
     if (m.care) { text.appendChild(Care.card(m.care, m.aiWords)); return el; }
@@ -155,7 +159,7 @@ export function render(root, id, params) {
     if (!c.msgs.length) log.innerHTML = '';
     const sentPhoto = photo; photo = null; attached.hidden = true; attached.innerHTML = '';
     box.value = ''; grow();
-    S.addMsg(c, { role: 'me', text, photo: !!sentPhoto });
+    S.addMsg(c, { role: 'me', text, photo: sentPhoto ? sentPhoto.thumb : undefined });
     log.appendChild(bubble(c.msgs[c.msgs.length - 1])); log.querySelectorAll('.followups').forEach((x) => x.remove());
     // safety first: the words say the student may be at risk → care and the crisis lines, at once
     const risk = Care.check(text);
@@ -171,7 +175,7 @@ export function render(root, id, params) {
     log.appendChild(typing); bottom();
     try {
       const context = rev ? `${rev.title}. ${rev.summary || ''} Key terms: ${rev.terms.map((t) => `${t.term}: ${t.meaning}`).join(' | ')}` : '';
-      const { data } = await ask('chat', { mode: c.mode, context, name: S.get().name, messages: c.msgs.map((m) => ({ role: m.role, text: m.text })), file: sentPhoto }, { signal: ctrl.signal });
+      const { data } = await ask('chat', { mode: c.mode, context, name: S.get().name, messages: c.msgs.map((m) => ({ role: m.role, text: m.text })), file: sentPhoto && { type: sentPhoto.type, data: sentPhoto.data } }, { signal: ctrl.signal });
       const care = Care.fromAI(data.reply);
       if (care) S.addMsg(c, { role: 'cody', care: Care.langOf(text), aiWords: care.aiWords, text: Care.reply(Care.langOf(text), care.aiWords) });
       else S.addMsg(c, { role: 'cody', text: data.reply, draw: c.mode === 'talk' ? '' : data.draw });
@@ -208,7 +212,8 @@ export function render(root, id, params) {
   form.querySelector('input[type=file]').addEventListener('change', async (e) => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
     try {
-      photo = { type: 'image/jpeg', data: await shrinkImage(f) };
+      // (the AI reads the big copy; the chat keeps a small one to show in your message, about 15 KB)
+      photo = { type: 'image/jpeg', data: await shrinkImage(f), thumb: await shrinkImage(f, 360, 0.7) };
       attached.hidden = false;
       attached.innerHTML = `<img alt="Your photo" src="data:image/jpeg;base64,${photo.data}"><span>Photo added. Ask about it, or just send.</span><button type="button" class="x" aria-label="Remove photo">×</button>`;
       attached.querySelector('.x').addEventListener('click', () => { photo = null; attached.hidden = true; attached.innerHTML = ''; });

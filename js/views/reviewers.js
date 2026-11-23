@@ -211,7 +211,7 @@ export function renderOne(root, id) {
         ${r.summary ? `<p class="summary">${esc(r.summary)}</p>` : ''}
         <dl class="terms">${r.terms.map((t, i) => `
           <div class="term"${i >= TERMS ? ' hidden' : ''}><dt>${esc(t.term)}</dt><dd>${esc(t.meaning)}</dd>
-            <a class="btn outline small" href="#/draw/${esc(r.id)}?part=${encodeURIComponent(t.part || '')}&term=${i}">✎ Draw it</a></div>`).join('')}
+            <a class="btn outline small" href="#/draw/${esc(r.id)}?part=${encodeURIComponent(t.part || '')}&term=${i}">${ICON.pencil}Draw it</a></div>`).join('')}
         </dl>
         ${r.terms.length > TERMS ? `<button type="button" class="btn small more-terms">Show all ${r.terms.length} terms</button>` : ''}
       </div>
@@ -266,6 +266,6 @@ function masteryCard(r) {
   if (!premium()) return `<p class="muted">See how well you know this reviewer, from your quiz, flashcards and Label it! results, and what to study next.</p><a class="btn small" href="#/plan/premium">Unlock with Premium (free during Code 99)</a>`;
   const m = S.mastery(r.id), C = 2 * Math.PI * 34;
   return `<div class="mastery"><svg viewBox="0 0 80 80" width="96" height="96" role="img" aria-label="${m.pct}% mastered"><circle cx="40" cy="40" r="34" fill="none" stroke="var(--line-2)" stroke-width="8"/><circle cx="40" cy="40" r="34" fill="none" stroke="var(--teal)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${(C * m.pct) / 100} ${C}" transform="rotate(-90 40 40)"/><text x="40" y="45" text-anchor="middle" class="m-pct">${m.pct}%</text></svg>
-    <div><b class="m-level">${m.level}</b><ul class="m-parts"><li>Quiz best: <b>${r.quiz.length ? m.quiz + '%' : '–'}</b></li><li>Cards learned: <b>${m.cards ? m.learned + '%' : '–'}</b></li>${m.label == null ? '' : `<li>Label it!: <b>${m.label >= 1 ? 'done' : m.label > 0 ? 'played once' : 'not yet'}</b></li>`}</ul></div></div>
+    <div><b class="m-level">${m.level}</b><ul class="m-parts"><li>Quiz best: <b>${r.quiz.length ? m.quiz + '%' : 'Not yet'}</b></li><li>Cards learned: <b>${m.cards ? m.learned + '%' : 'Not yet'}</b></li>${m.label == null ? '' : `<li>Label it!: <b>${m.label >= 1 ? 'done' : m.label > 0 ? 'played once' : 'not yet'}</b></li>`}</ul></div></div>
     ${m.next ? `<a class="btn small" href="${m.next.go}">Next: ${m.next.text}</a>` : '<p class="muted">You know this one well. Review the flashcards when they come due.</p>'}`;
 }

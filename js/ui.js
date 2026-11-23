@@ -28,6 +28,8 @@ export const ICON = {
   stop: P('<rect x="6" y="6" width="12" height="12" rx="2"/>'),
   play: P('<path d="M7 4.5v15l12-7.5z"/>'),
   share: P('<path d="M12 15V3M7 8l5-5 5 5M5 14v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/>'),
+  flame: P('<path d="M12 21c-3.9 0-7-2.8-7-6.6 0-2.9 1.8-4.9 3.6-6.6.4 1.9 1.4 3 2.6 3.4C11 8.2 12 5.4 14.6 3c.3 3.3 4.4 5.9 4.4 11.1 0 4-3.1 6.9-7 6.9z"/><path d="M12 21c-1.7 0-3-1.2-3-2.9 0-1.6 1.3-2.7 2.3-3.7.4 1.4 1.2 2 1.9 2.2.6-.8.8-1.7.6-2.7 1.3 1 2.2 2.4 2.2 4.1 0 1.7-1.4 3-4 3z"/>'),
+  clock: P('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/>'),
   trash: P('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'),
 };
 // Cody's face: curly braces for cheeks (a coder's smile)

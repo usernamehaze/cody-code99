@@ -121,7 +121,7 @@ export function render(root, id, params) {
       const open = wrap.querySelector('.open'); open.hidden = false;
       open.addEventListener('click', () => openDrawing(spec, m.draw));
     };
-    const in3d = /\b3d\b/i.test(m.draw), sample = in3d ? null : sampleFor(m.draw), fig = in3d ? null : figureFor(m.draw);
+    const in3d = /\b3d\b/i.test(m.draw), sample = in3d ? null : sampleFor(m.draw), fig = figureFor(m.draw, in3d ? '3d' : '2d');
     if (m.spec) show(m.spec);
     else if (sample) show(sample.drawing);
     else if (fig) show(fig);

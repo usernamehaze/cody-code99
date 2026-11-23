@@ -8,6 +8,7 @@
    (The same order Cassie's server uses.) Optional: GROQ_MODEL, GEMINI_MODEL, CLAUDE_MODEL (tried first). */
 import Anthropic from '@anthropic-ai/sdk';
 import { limited } from '../lib/limit.js';
+import { kv, kvMode } from '../lib/kv.js';
 import { cors } from '../lib/cors.js';
 import { SYSTEM, plain, reviewerPrompt, checkReviewer, drawPrompt, drawMode, checkDrawing, explainPrompt, checkExplain, chatPrompt, checkChat, guidePrompt, checkGuide } from '../lib/tasks.js';
 
@@ -131,6 +132,23 @@ async function ask(prompt, check, file, opts = {}) {
   throw err;
 }
 
+// ---- drawings kept on the server (in the same store as study rooms), for 180 days ----
+// the key is the question with the small words taken out, so "Draw the water cycle!" and "water cycle" match
+const FILLER = /\b(a|an|the|of|please|pls|draw|show|me|us|can|you|could|make|explain|picture|diagram|in\s*3d|3d|model)\b/g;
+export const drawKey = (question, mode, lang) => {
+  const words = String(question || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(FILLER, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+  return words ? `draw:v1:${mode}:${lang || 'en'}:${words}` : null;
+};
+const storeOn = () => kvMode() !== 'off';
+async function keptDrawing(key) {
+  if (!key || !storeOn()) return null;
+  try { const v = await kv('GET', key); return v ? JSON.parse(v) : null; } catch (e) { return null; }
+}
+async function keepDrawing(key, data) {
+  if (!key || !storeOn() || !data) return;
+  try { await kv('SET', key, JSON.stringify(data), 'EX', 180 * 24 * 3600); } catch (e) { /* (a drawing that is not kept is only slower next time) */ }
+}
+
 export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method === 'GET') return res.status(200).json({ ok: true, providers: ORDER.filter((n) => env(PROVIDERS[n].key)) });
@@ -170,6 +188,10 @@ export default async function handler(req, res) {
       // the server stops at 120 seconds, so every try ends by 110; a 3D model gets the first 75, and if no AI could
       // build one, it is drawn flat instead (an easier job) in the time left
       const mode = drawMode(body.question, body.mode);
+      // a drawing someone already got for the same question comes back at once, the same every time
+      // (fresh: the student asked for a new one, which then replaces it)
+      const key = drawKey(body.question, mode, body.lang);
+      if (!body.fresh) { const kept = await keptDrawing(key); if (kept) return res.status(200).json({ ok: true, data: kept, by: 'saved', ...(body.mode === '3d' && mode === '2d' ? { flat: 'soft' } : {}) }); }
       const t0 = Date.now();
       const draw = (m, end) => ask(drawPrompt({ question: body.question, context: body.context, mode: m }), (j, attempt) => checkDrawing(j, attempt, body.question), null, { lang, order: ['claude', 'gemini', 'groq'], effort: 'medium', end });
       if (mode === '3d') {
@@ -177,6 +199,7 @@ export default async function handler(req, res) {
         catch (e) { if (e.status === 503) throw e; out = await draw('2d', t0 + 110000); out.flat = 'failed'; }
       } else out = await draw('2d', t0 + 110000);
       if (body.mode === '3d' && mode === '2d') out.flat = 'soft'; // (3D was asked for something soft or living: drawn flat, and the app says why)
+      if (out.flat !== 'failed') await keepDrawing(key, out.data);
     } else if (body.task === 'chat') {
       const msgs = Array.isArray(body.messages) ? body.messages : [];
       if (!msgs.length || !String((msgs[msgs.length - 1] || {}).text || '').trim()) return res.status(400).json({ ok: false, error: 'Say something to Cody first.' });

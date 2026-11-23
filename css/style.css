@@ -905,3 +905,4 @@ html:has(body.gated), body.gated { overflow: hidden; }
 .streak-pill > svg, .streak-card b > svg { color: #fb923c; }
 .streak-card b { display: inline-flex; align-items: center; gap: 6px; }
 .streak-card b > svg { width: 1em; height: 1em; }
+.board + .redo { margin-top: 10px; align-self: flex-start; }

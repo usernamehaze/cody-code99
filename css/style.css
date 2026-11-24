@@ -906,3 +906,8 @@ html:has(body.gated), body.gated { overflow: hidden; }
 .streak-card b { display: inline-flex; align-items: center; gap: 6px; }
 .streak-card b > svg { width: 1em; height: 1em; }
 .board + .redo { margin-top: 10px; align-self: flex-start; }
+
+/* a link from a drive */
+.link-in .row { display: flex; gap: 8px; margin: 8px 0 4px; }
+.link-in .drive-link { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; color: inherit; font: inherit; }
+.link-in p { margin: 8px 0 0; }

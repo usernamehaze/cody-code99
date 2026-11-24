@@ -13,7 +13,7 @@ try {
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
   }
 } catch (e) { /* no .env: the samples still work */ }
-const API = { ai: (await import('../api/ai.js')).default, class: (await import('../api/class.js')).default, account: (await import('../api/account.js')).default };
+const API = { ai: (await import('../api/ai.js')).default, class: (await import('../api/class.js')).default, account: (await import('../api/account.js')).default, drive: (await import('../api/drive.js')).default };
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
 const PUBLIC = new Set(['index.html', 'manifest.webmanifest', 'sw.js', 'privacy.html', 'terms.html']);
@@ -21,7 +21,7 @@ const PORT = +process.env.PORT || 3000;
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
-  const api = url.pathname.match(/^\/api\/(ai|class|account)$/);
+  const api = url.pathname.match(/^\/api\/(ai|class|account|drive)$/);
   if (api) {
     let body = '';
     for await (const c of req) { body += c; if (body.length > 6e6) break; }

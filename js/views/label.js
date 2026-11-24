@@ -1,6 +1,6 @@
 import * as S from '../store.js';
 import { mount } from '../draw.js';
-import { esc, header, toast } from '../ui.js';
+import { esc, header, toast, ICON } from '../ui.js';
 import { say, emptyState } from '../mascot.js';
 
 // "The aorta is the biggest artery" -> "This part is the biggest artery" (the tip must not give the name away)
@@ -25,7 +25,7 @@ export function render(root, id) {
 
   root.innerHTML = `
     ${header(`Label it! ${rev.title}`, 'Drag each name to its part. Faster answers earn more points.', `
-      <span class="pill">⏱ <b class="clock">0:00</b></span><span class="pill">Points <b class="gold pts">+0</b></span><span class="pill">🔥 Combo <b class="combo">x1</b></span>`)}
+      <span class="pill">${ICON.clock}<b class="clock">0:00</b></span><span class="pill">Points <b class="gold pts">+0</b></span><span class="pill">${ICON.flame}Combo <b class="combo">x1</b></span>`)}
     <section class="split grow">
       <div class="card"><div class="board" id="game-board"></div></div>
       <div class="card panel">

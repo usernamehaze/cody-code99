@@ -1,7 +1,7 @@
 import * as S from '../store.js';
 import { mount } from '../draw.js';
 import { esc, header } from '../ui.js';
-import { emptyState } from '../mascot.js';
+import { emptyState, mascot } from '../mascot.js';
 
 export function render(root, deckId) {
   const decks = S.decks();
@@ -36,7 +36,7 @@ export function render(root, deckId) {
             <button class="btn primary grade got" data-g="got" ${flipped ? '' : 'disabled'}>Got it</button>
           </div>
           <p class="muted keys">Keys: space to flip · 1 Again · 2 Almost · 3 Got it</p>`
-          : `<div class="card result"><p class="big">🎉</p><p>No cards due in this deck.</p><p class="muted">Cody will bring them back when it is time to review.</p>${rev ? `<a class="btn primary" href="#/quiz/${esc(rev.id)}">Quiz me instead</a>` : ''}</div>`}
+          : `<div class="card result"><p class="big">${mascot('happy', 72)}</p><p>No cards due in this deck.</p><p class="muted">Cody will bring them back when it is time to review.</p>${rev ? `<a class="btn primary" href="#/quiz/${esc(rev.id)}">Quiz me instead</a>` : ''}</div>`}
         </div>
         ${deckList()}
       </section>`;

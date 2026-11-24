@@ -874,3 +874,40 @@ html:has(body.gated), body.gated { overflow: hidden; }
 .room-cta span:not(.room-cta-go) { flex: 1; display: grid; gap: 2px; }
 .room-cta small { color: var(--muted); }
 .room-cta-go { flex: none; padding: 9px 16px; border-radius: 99px; border: 1.5px solid var(--teal); color: var(--teal); font-weight: 700; }
+
+/* ---------- phones: a smaller tab capsule, and Draw with Cody gives its room to the board ---------- */
+@media (max-width: 860px) {
+  .tabs { padding: 5px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .tabs a { height: 44px; min-width: 42px; font-size: 14px; }
+  .tabs a svg { width: 21px; height: 21px; }
+  .main { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+  .cody-bubble { width: 50px; height: 50px; bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+  .cody-bubble .cm { width: 36px; height: 36px; }
+}
+@media (max-width: 560px) {
+  .ask { flex-direction: row; flex-wrap: wrap; gap: 8px; }
+  .ask input { flex-basis: 100%; min-height: 44px; padding-top: 0; padding-bottom: 0; }
+  .ask .mode-seg { flex: 1; } .ask .mode-seg button { min-height: 36px; font-size: 15px; }
+  .ask > .btn { flex: 1; min-height: 44px; }
+  .ask + .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: -6px -16px 0; padding: 0 16px; }
+  .ask + .chips::-webkit-scrollbar { display: none; }
+  .ask + .chips .chip { flex: none; min-height: 36px; padding: 0 12px; font-size: 13.5px; white-space: nowrap; }
+  .split > .card:has(> #board) { padding: 12px; }
+  .split > .card > .board-title { font-size: 19px; margin-bottom: 10px; }
+  .board#board { min-height: 300px; padding: 4px; }
+  .explain .controls { gap: 8px; }
+  .explain .controls .btn { min-height: 40px; font-size: 14px; padding: 0 10px; }
+  .status-pill { padding: 5px 12px 5px 6px; font-size: 13.5px; } .status-pill .mini-logo svg { width: 20px; height: 20px; }
+}
+.msg.me .sent-photo { display: block; max-width: min(220px, 56vw); max-height: 220px; border-radius: 12px; margin: 2px 0 8px; object-fit: cover; }
+/* line icons where emojis used to be (the streak, the timer, Draw it) */
+.pill > svg, .streak-card b > svg, .btn > svg { width: 18px; height: 18px; flex: none; }
+.streak-pill > svg, .streak-card b > svg { color: #fb923c; }
+.streak-card b { display: inline-flex; align-items: center; gap: 6px; }
+.streak-card b > svg { width: 1em; height: 1em; }
+.board + .redo { margin-top: 10px; align-self: flex-start; }
+
+/* a link from a drive */
+.link-in .row { display: flex; gap: 8px; margin: 8px 0 4px; }
+.link-in .drive-link { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; color: inherit; font: inherit; }
+.link-in p { margin: 8px 0 0; }

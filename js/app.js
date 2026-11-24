@@ -34,8 +34,8 @@ function shell() {
     <a class="brand" href="#/">${LOGO}<span>Cody</span></a>
     <nav aria-label="Main">${NAV.map(([k, t, h, ic]) => `<a href="${h}" data-k="${k}">${ic}<span>${t}</span></a>`).join('')}</nav>
     <div class="buddy"><span class="cm-bubble" role="status"></span><button class="cm-face" data-size="84" aria-label="Cody, your study buddy. Tap for a tip."></button></div>
-    <div class="streak-card"><b>🔥 <span class="n"></span></b><span class="muted msg"></span></div>`;
-  document.getElementById('top').innerHTML = `<a class="brand" href="#/">${LOGO}<span>Cody</span></a><div class="top-right"><button class="cm-face" data-size="40" aria-label="Cody, your study buddy. Tap for a tip."></button><a class="pill streak-pill" href="#/plan">🔥 <b class="n"></b></a></div><span class="cm-bubble top-bubble" role="status"></span>`;
+    <div class="streak-card"><b>${ICON.flame}<span class="n"></span></b><span class="muted msg"></span></div>`;
+  document.getElementById('top').innerHTML = `<a class="brand" href="#/">${LOGO}<span>Cody</span></a><div class="top-right"><button class="cm-face" data-size="40" aria-label="Cody, your study buddy. Tap for a tip."></button><a class="pill streak-pill" href="#/plan" aria-label="Study streak">${ICON.flame}<b class="n"></b></a></div><span class="cm-bubble top-bubble" role="status"></span>`;
   Mascot.mount([document.getElementById('side'), document.getElementById('top')]);
   // a floating pill (like Cassie's): icons only, and the open tab grows into a teal pill with its name
   document.getElementById('tabs').innerHTML = TABS.map(([k, t, h, ic]) => `<a href="${h}" data-k="${k}" aria-label="${t}">${ic}<span>${t}</span></a>`).join('');

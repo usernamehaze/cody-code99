@@ -1,5 +1,5 @@
 import * as S from '../store.js';
-import { ask } from '../ai.js';
+import { ask, API } from '../ai.js';
 import { readNotes, shrinkImage } from '../notes.js';
 import { mount, clean } from '../draw.js';
 import { esc, header, ICON, toast, askSure, busy, plural, choose } from '../ui.js';
@@ -74,7 +74,7 @@ const fileName = (r, ext) => `${(r.title || 'Reviewer').replace(/[^\p{L}\p{N}\- 
 
 function uploadZone() {
   return `<label class="drop" tabindex="0">
-      <input type="file" accept="application/pdf,image/*,.txt,.md" hidden>
+      <input type="file" accept="application/pdf,image/*,text/plain,.txt,.md" hidden>
       <span class="drop-icon">${ICON.upload}</span>
       <b>Drop a PDF, a photo or paste your notes</b>
       <span class="muted">Cody reads it and makes your reviewer</span>
@@ -83,6 +83,10 @@ function uploadZone() {
       <label class="btn scan-btn">${ICON.image} Scan with camera<input type="file" accept="image/*" capture="environment" multiple hidden></label>
       <div class="scan-tray" hidden><div class="scan-pages"></div><div class="row"><label class="btn small">Add a page<input type="file" accept="image/*" capture="environment" multiple hidden class="scan-more"></label><button type="button" class="btn small primary scan-go">Make my reviewer</button><button type="button" class="btn small ghost scan-clear">Remove all</button></div></div>
     </div>
+    <details class="paste link-in"><summary>From Google Drive, Dropbox or OneDrive</summary>
+      <p class="muted small">In your drive, tap Share, set it to "Anyone with the link", copy the link and paste it here. Google Docs, Slides and Sheets work too.</p>
+      <div class="row"><input type="url" class="drive-link" inputmode="url" placeholder="https://drive.google.com/file/d/…" aria-label="Link to your file"><button type="button" class="btn primary small go-link">Get it</button></div>
+    </details>
     <details class="paste"><summary>Paste notes instead</summary>
       <textarea rows="6" placeholder="Paste your notes here…"></textarea>
       <button class="btn primary small go-paste">Make my reviewer</button>
@@ -126,6 +130,24 @@ function wireUpload(root) {
   ['dragover', 'dragenter'].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('over'); }));
   ['dragleave', 'drop'].forEach((ev) => zone.addEventListener(ev, () => zone.classList.remove('over')));
   zone.addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) run({ file: f }); });
+  // a file shared from a drive: the server gets it (the drives block browsers), then it's read like an upload
+  const linkBox = root.querySelector('.drive-link'), linkGo = root.querySelector('.go-link');
+  const fromLink = async () => {
+    const link = linkBox.value.trim();
+    if (!link) { status.textContent = 'Paste the share link first.'; return; }
+    if (working) return;
+    await busy(linkGo, 'Getting your file…', async () => {
+      let j;
+      try { const r = await fetch(API + '/api/drive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ link }) }); j = await r.json(); }
+      catch (e) { j = { ok: false, error: 'Cody couldn’t reach your drive. Check your connection.' }; }
+      if (!j.ok) { status.textContent = j.error; return; }
+      const bytes = Uint8Array.from(atob(j.data), (c) => c.charCodeAt(0));
+      linkBox.value = '';
+      await run({ file: new File([bytes], j.name, { type: j.type }) });
+    });
+  };
+  linkGo.addEventListener('click', fromLink);
+  linkBox.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); fromLink(); } });
   root.querySelector('.go-paste').addEventListener('click', () => { const t = root.querySelector('.paste textarea').value.trim(); if (t.length < 40) { status.textContent = 'Paste a bit more, at least a few sentences.'; return; } run({ text: t }); });
 }
 
@@ -211,7 +233,7 @@ export function renderOne(root, id) {
         ${r.summary ? `<p class="summary">${esc(r.summary)}</p>` : ''}
         <dl class="terms">${r.terms.map((t, i) => `
           <div class="term"${i >= TERMS ? ' hidden' : ''}><dt>${esc(t.term)}</dt><dd>${esc(t.meaning)}</dd>
-            <a class="btn outline small" href="#/draw/${esc(r.id)}?part=${encodeURIComponent(t.part || '')}&term=${i}">✎ Draw it</a></div>`).join('')}
+            <a class="btn outline small" href="#/draw/${esc(r.id)}?part=${encodeURIComponent(t.part || '')}&term=${i}">${ICON.pencil}Draw it</a></div>`).join('')}
         </dl>
         ${r.terms.length > TERMS ? `<button type="button" class="btn small more-terms">Show all ${r.terms.length} terms</button>` : ''}
       </div>
@@ -266,6 +288,6 @@ function masteryCard(r) {
   if (!premium()) return `<p class="muted">See how well you know this reviewer, from your quiz, flashcards and Label it! results, and what to study next.</p><a class="btn small" href="#/plan/premium">Unlock with Premium (free during Code 99)</a>`;
   const m = S.mastery(r.id), C = 2 * Math.PI * 34;
   return `<div class="mastery"><svg viewBox="0 0 80 80" width="96" height="96" role="img" aria-label="${m.pct}% mastered"><circle cx="40" cy="40" r="34" fill="none" stroke="var(--line-2)" stroke-width="8"/><circle cx="40" cy="40" r="34" fill="none" stroke="var(--teal)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${(C * m.pct) / 100} ${C}" transform="rotate(-90 40 40)"/><text x="40" y="45" text-anchor="middle" class="m-pct">${m.pct}%</text></svg>
-    <div><b class="m-level">${m.level}</b><ul class="m-parts"><li>Quiz best: <b>${r.quiz.length ? m.quiz + '%' : '–'}</b></li><li>Cards learned: <b>${m.cards ? m.learned + '%' : '–'}</b></li>${m.label == null ? '' : `<li>Label it!: <b>${m.label >= 1 ? 'done' : m.label > 0 ? 'played once' : 'not yet'}</b></li>`}</ul></div></div>
+    <div><b class="m-level">${m.level}</b><ul class="m-parts"><li>Quiz best: <b>${r.quiz.length ? m.quiz + '%' : 'Not yet'}</b></li><li>Cards learned: <b>${m.cards ? m.learned + '%' : 'Not yet'}</b></li>${m.label == null ? '' : `<li>Label it!: <b>${m.label >= 1 ? 'done' : m.label > 0 ? 'played once' : 'not yet'}</b></li>`}</ul></div></div>
     ${m.next ? `<a class="btn small" href="${m.next.go}">Next: ${m.next.text}</a>` : '<p class="muted">You know this one well. Review the flashcards when they come due.</p>'}`;
 }

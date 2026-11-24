@@ -22,7 +22,7 @@ export function render(root) {
     <section class="stats">
       <div class="card stat"><span>Study streak</span><b>${S.streak()} day${S.streak() === 1 ? '' : 's'}</b></div>
       <div class="card stat"><span>Cards learned</span><b>${fmt(S.learnedCount())}</b></div>
-      <div class="card stat"><span>Quiz score this week</span>${quiz == null ? '<b class="none">–</b><small>Take a quiz to see it</small>' : `<b>${quiz}%</b>`}</div>
+      <div class="card stat"><span>Quiz score this week</span>${quiz == null ? '<b class="none">None yet</b><small>Take a quiz to see it</small>' : `<b>${quiz}%</b>`}</div>
       <div class="card stat"><span>Points</span><b class="gold">${fmt(s.points)}</b></div>
     </section>
     <section class="grid-2 grow">

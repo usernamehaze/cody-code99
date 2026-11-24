@@ -86,13 +86,88 @@ const dragon = {
   ],
 };
 
+/* Hand-built 3D models for the examples on Draw with Cody, so they always work, even with no internet or AI.
+   Same spec as an AI model (see lib/model3d.js): about 6 units long, centred on 0,0,0, parts in building order. */
+const L = (x0, y0, z0, x1, y1, z1, r) => ({ t: 'pipe', pts: [[x0, y0, z0], [x1, y1, z1]], r });
+const wheelAt = (x) => [
+  { t: 'torus', r: 0.95, tube: 0.075, axis: 'z', pos: [x, 0, 0] }, // tyre
+  { t: 'torus', r: 0.86, tube: 0.03, axis: 'z', pos: [x, 0, 0], color: '#cbd5e1' }, // rim
+  { t: 'blades', n: 16, len: 0.78, width: 0.012, hub: 0.06, axis: 'z', pos: [x, 0, 0], color: '#e2e8f0' }, // spokes
+  { t: 'cylinder', r: 0.07, len: 0.22, axis: 'z', pos: [x, 0, 0], color: '#94a3b8' }, // hub
+];
+const bicycle = {
+  title: 'A bicycle', mode: '3d', axis: 'x',
+  intro: 'Let us build a bicycle and see how the push of your legs turns its wheels.',
+  summary: 'Your feet push the pedals, the cranks turn the chainring, the chain pulls the back wheel round, and the bike rolls forward.',
+  parts: [
+    { id: 'frame', label: 'Frame', color: '#ef4444', finish: 'metal', size: 0.55, inside: null, attached: ['fork', 'wheels', 'cranks', 'seat'],
+      say: 'The frame is a diamond of strong metal tubes. Triangles do not bend easily, so the frame holds every other part firmly.',
+      shapes: [L(-0.3, -0.15, 0, -0.75, 1.35, 0, 0.06), L(-0.75, 1.35, 0, 1.05, 1.3, 0, 0.055), L(-0.3, -0.15, 0, 1.2, 0.85, 0, 0.065), L(1.05, 1.3, 0, 1.2, 0.85, 0, 0.07),
+        L(-0.3, -0.15, 0.1, -1.7, 0, 0.1, 0.035), L(-0.3, -0.15, -0.1, -1.7, 0, -0.1, 0.035), L(-0.72, 1.25, 0.06, -1.7, 0, 0.1, 0.03), L(-0.72, 1.25, -0.06, -1.7, 0, -0.1, 0.03)] },
+    { id: 'wheels', label: 'Wheels', color: '#1f2937', finish: 'rubber', size: 1, inside: null, attached: ['frame', 'fork'], spin: true,
+      say: 'Two wheels stand upright and turn on axles. Rubber tyres grip the road, and thin spokes keep each rim round and strong.',
+      shapes: [...wheelAt(-1.7), ...wheelAt(1.7)] },
+    { id: 'fork', label: 'Front fork', color: '#cbd5e1', finish: 'metal', size: 0.24, inside: null, attached: ['frame', 'wheels', 'handlebars'],
+      say: 'The fork holds the front wheel on both sides. It turns inside the frame, so the front wheel can steer.',
+      shapes: [{ t: 'pipe', pts: [[1.2, 0.85, 0.1], [1.45, 0.4, 0.11], [1.7, 0, 0.1]], r: 0.035 }, { t: 'pipe', pts: [[1.2, 0.85, -0.1], [1.45, 0.4, -0.11], [1.7, 0, -0.1]], r: 0.035 }, L(1.2, 0.85, -0.11, 1.2, 0.85, 0.11, 0.04), L(1.21, 0.82, 0, 1.04, 1.33, 0, 0.03)] },
+    { id: 'handlebars', label: 'Handlebars', color: '#94a3b8', finish: 'metal', size: 0.2, inside: null, attached: ['fork'],
+      say: 'Turn the handlebars and the fork turns the front wheel. That is how you steer.',
+      shapes: [{ t: 'pipe', pts: [[1.05, 1.3, 0], [1.0, 1.55, 0], [1.15, 1.6, 0]], r: 0.04 }, L(1.15, 1.6, -0.45, 1.15, 1.6, 0.45, 0.035),
+        { t: 'capsule', r: 0.05, len: 0.18, axis: 'z', pos: [1.15, 1.6, 0.45], color: '#111827' }, { t: 'capsule', r: 0.05, len: 0.18, axis: 'z', pos: [1.15, 1.6, -0.45], color: '#111827' }] },
+    { id: 'seat', label: 'Seat', color: '#111827', finish: 'plastic', size: 0.1, inside: null, attached: ['frame'],
+      say: 'The seat sits on a post that slides into the frame, so it can be raised or lowered to fit the rider.',
+      shapes: [L(-0.75, 1.35, 0, -0.8, 1.6, 0, 0.035), { t: 'capsule', r: 0.08, len: 0.32, axis: 'x', pos: [-0.78, 1.66, 0], rot: [0, 0, 0.05] }] },
+    { id: 'cranks', label: 'Pedals and cranks', color: '#64748b', finish: 'metal', size: 0.2, inside: null, attached: ['frame', 'chain'],
+      say: 'Your feet push the pedals round in a circle. The cranks turn the big toothed chainring.',
+      shapes: [{ t: 'disc', r: 0.32, thick: 0.03, axis: 'z', pos: [-0.3, -0.15, 0.17], color: '#cbd5e1' }, L(-0.3, -0.15, 0.22, -0.3, -0.62, 0.22, 0.03), L(-0.3, -0.15, -0.22, -0.3, 0.32, -0.22, 0.03),
+        { t: 'box', size: [0.26, 0.05, 0.16], pos: [-0.3, -0.62, 0.32], color: '#111827' }, { t: 'box', size: [0.26, 0.05, 0.16], pos: [-0.3, 0.32, -0.32], color: '#111827' }] },
+    { id: 'chain', label: 'Chain', color: '#475569', finish: 'metal', size: 0.36, inside: null, attached: ['cranks', 'wheels'],
+      say: 'The chain wraps round the chainring and a small gear on the back wheel. When the pedals turn, the chain pulls the back wheel round.',
+      shapes: [{ t: 'pipe', pts: [[-0.3, 0.17, 0.17], [-1.7, 0.13, 0.17], [-1.84, 0, 0.17], [-1.7, -0.13, 0.17], [-0.3, -0.47, 0.17], [0.03, -0.15, 0.17], [-0.3, 0.17, 0.17]], r: 0.02 },
+        { t: 'disc', r: 0.13, thick: 0.03, axis: 'z', pos: [-1.7, 0, 0.17], color: '#cbd5e1' }] },
+  ],
+};
+
+const jetEngine = {
+  title: 'A jet engine', mode: '3d', axis: 'x',
+  intro: 'Let us build a jet engine and follow the air as it goes through, from the front to the back.',
+  summary: 'The fan and compressor suck in and squeeze air, fuel burns in it, the hot gas spins the turbine, and it rushes out of the nozzle, pushing the plane forward.',
+  parts: [
+    { id: 'cowling', label: 'Cowling', color: '#e2e8f0', finish: 'metal', size: 0.62, inside: null, attached: ['fan', 'nozzle'], shell: true,
+      say: 'The cowling is the smooth outer case. It guides the air in and protects the parts inside. Open it up to see them.',
+      shapes: [{ t: 'lathe', profile: [[1.18, -3.0], [1.3, -2.75], [1.32, -2.0], [1.25, -0.6], [1.08, 0.6], [0.98, 1.1]], axis: 'x', pos: [0, 0, 0] }] },
+    { id: 'fan', label: 'Fan', color: '#94a3b8', finish: 'metal', size: 0.42, inside: 'cowling', attached: ['shaft', 'compressor'], spin: true,
+      say: 'The big fan at the front sucks in huge amounts of air. Most of it flows around the engine core and gives much of the push.',
+      shapes: [{ t: 'blades', n: 20, len: 0.86, width: 0.32, hub: 0.3, axis: 'x', pos: [-2.35, 0, 0] }, { t: 'cone', r: 0.32, len: 0.55, axis: 'x', dir: -1, pos: [-2.75, 0, 0], color: '#cbd5e1' }] },
+    { id: 'compressor', label: 'Compressor', color: '#a3b1c2', finish: 'metal', size: 0.32, inside: 'cowling', attached: ['fan', 'combustor', 'shaft'], spin: true,
+      say: 'Rows of smaller blades squeeze the air tighter and tighter. Squeezed air holds more oxygen for burning.',
+      shapes: [{ t: 'cylinder', r: 0.34, r2: 0.3, len: 1.3, axis: 'x', pos: [-1.35, 0, 0] }, ...[[-1.9, 0.58], [-1.55, 0.52], [-1.2, 0.46], [-0.85, 0.4]].map(([x, l]) => ({ t: 'blades', n: 26, len: l, width: 0.14, hub: 0.3, axis: 'x', pos: [x, 0, 0] }))] },
+    { id: 'shaft', label: 'Shaft', color: '#475569', finish: 'metal', size: 0.6, inside: 'cowling', attached: ['fan', 'compressor', 'turbine'], spin: true,
+      say: 'One long shaft joins the turbine at the back to the compressor and fan at the front, so they all turn together.',
+      shapes: [{ t: 'cylinder', r: 0.09, len: 4.0, axis: 'x', pos: [-0.75, 0, 0] }] },
+    { id: 'combustor', label: 'Combustion chamber', color: '#fb923c', finish: 'metal', size: 0.24, inside: 'cowling', attached: ['compressor', 'turbine'], glow: true,
+      say: 'Here fuel is sprayed into the squeezed air and burns. The gas gets very hot and expands with great force.',
+      shapes: [{ t: 'torus', r: 0.5, tube: 0.16, axis: 'x', pos: [-0.3, 0, 0] }, { t: 'torus', r: 0.5, tube: 0.16, axis: 'x', pos: [0.05, 0, 0] }, { t: 'cylinder', r: 0.42, len: 0.7, axis: 'x', pos: [-0.12, 0, 0], open: true }] },
+    { id: 'turbine', label: 'Turbine', color: '#64748b', finish: 'metal', size: 0.28, inside: 'cowling', attached: ['combustor', 'shaft', 'nozzle'], spin: true,
+      say: 'The hot gas rushes past the turbine blades and spins them, like wind spins a pinwheel. The turbine turns the shaft.',
+      shapes: [{ t: 'disc', r: 0.3, thick: 0.5, axis: 'x', pos: [0.6, 0, 0] }, { t: 'blades', n: 30, len: 0.44, width: 0.13, hub: 0.28, axis: 'x', pos: [0.45, 0, 0] }, { t: 'blades', n: 30, len: 0.5, width: 0.13, hub: 0.28, axis: 'x', pos: [0.75, 0, 0] }] },
+    { id: 'nozzle', label: 'Nozzle', color: '#334155', finish: 'metal', size: 0.26, inside: null, attached: ['cowling', 'turbine'],
+      say: 'The nozzle narrows at the back, so the hot gas shoots out very fast. Pushing gas backward pushes the plane forward.',
+      shapes: [{ t: 'lathe', profile: [[0.98, 1.05], [0.88, 1.7], [0.62, 2.5]], axis: 'x', pos: [0, 0, 0] }, { t: 'cone', r: 0.28, len: 0.9, axis: 'x', dir: 1, pos: [1.4, 0, 0], color: '#64748b' }] },
+  ],
+};
+
 const FIGURES = [
   [/\bdragons?\b|\bdragon'?s\b|\bdrag[oó]n\b/i, dragon],
 ];
+const FIGURES3D = [
+  [/\b(bicycles?|bikes?|bisikleta)\b/i, bicycle],
+  [/\bjet\s*engines?\b|\bturbofans?\b|\bjet\s*turbines?\b/i, jetEngine],
+];
 
-// a hand-drawn figure for this question, or null
-export function figureFor(text) {
+// a hand-made figure for this question (a flat drawing, or a 3D model when mode is '3d'), or null
+export function figureFor(text, mode = '2d') {
   const t = String(text || '');
-  const hit = FIGURES.find(([re]) => re.test(t));
+  const hit = (mode === '3d' ? FIGURES3D : FIGURES).find(([re]) => re.test(t));
   return hit ? hit[1] : null;
 }

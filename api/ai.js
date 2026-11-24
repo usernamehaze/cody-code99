@@ -8,8 +8,9 @@
    (The same order Cassie's server uses.) Optional: GROQ_MODEL, GEMINI_MODEL, CLAUDE_MODEL (tried first). */
 import Anthropic from '@anthropic-ai/sdk';
 import { limited } from '../lib/limit.js';
+import { kv, kvMode } from '../lib/kv.js';
 import { cors } from '../lib/cors.js';
-import { SYSTEM, reviewerPrompt, checkReviewer, drawPrompt, drawMode, checkDrawing, explainPrompt, checkExplain, chatPrompt, checkChat, guidePrompt, checkGuide } from '../lib/tasks.js';
+import { SYSTEM, plain, reviewerPrompt, checkReviewer, drawPrompt, drawMode, checkDrawing, explainPrompt, checkExplain, chatPrompt, checkChat, guidePrompt, checkGuide } from '../lib/tasks.js';
 
 const env = (k) => (process.env[k] || '').trim();
 // Providers retire model names over time, so each has a list, best first (the same lists Cassie uses).
@@ -49,7 +50,7 @@ const groq = (prompt, file, opts = {}) => eachModel(GROQ_MODELS(), async (model)
   const body = { model, temperature: 0.4, max_tokens: 12000, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM() }, { role: 'user', content: prompt }] };
   if (/gpt-oss/.test(model)) body.reasoning_effort = opts.effort || 'low'; // (quick answers; a study guide thinks harder)
   const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST', signal: AbortSignal.timeout(30000),
+    method: 'POST', signal: AbortSignal.timeout(Math.min(30000, opts.ms || 30000)),
     headers: { 'content-type': 'application/json', authorization: `Bearer ${env('GROQ_API_KEY')}` },
     body: JSON.stringify(body),
   });
@@ -58,13 +59,13 @@ const groq = (prompt, file, opts = {}) => eachModel(GROQ_MODELS(), async (model)
   return parseJSON(j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content);
 });
 
-const gemini = (prompt, file) => eachModel(GEMINI_MODELS(), (model) => geminiOnce(model, prompt, file));
-async function geminiOnce(model, prompt, file) {
+const gemini = (prompt, file, opts = {}) => eachModel(GEMINI_MODELS(), (model) => geminiOnce(model, prompt, file, opts.ms));
+async function geminiOnce(model, prompt, file, ms) {
   const parts = [];
   if (file) file.forEach((f) => parts.push({ inline_data: { mime_type: f.type, data: f.data } }));
   parts.push({ text: prompt });
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST', signal: AbortSignal.timeout(file ? 45000 : 30000),
+    method: 'POST', signal: AbortSignal.timeout(Math.min(file ? 45000 : 30000, ms || 45000)),
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env('GEMINI_API_KEY') },
     body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM() }] }, contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } }),
   });
@@ -75,7 +76,7 @@ async function geminiOnce(model, prompt, file) {
 }
 
 let claudeClient = null;
-async function claude(prompt, file) {
+async function claude(prompt, file, opts = {}) {
   claudeClient = claudeClient || new Anthropic({ apiKey: env('ANTHROPIC_API_KEY'), timeout: 55000, maxRetries: 1 });
   const content = [];
   (file || []).forEach((f) => content.push(f.type === 'application/pdf'
@@ -88,7 +89,7 @@ async function claude(prompt, file) {
     output_config: { effort: 'low' },
     betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
     messages: [{ role: 'user', content }],
-  });
+  }, opts.ms ? { timeout: Math.min(55000, opts.ms), maxRetries: 0 } : undefined);
   if (msg.stop_reason === 'refusal') throw new Error('Claude declined');
   return parseJSON(msg.content.filter((b) => b.type === 'text').map((b) => b.text).join(''));
 }
@@ -96,25 +97,56 @@ async function claude(prompt, file) {
 const PROVIDERS = { groq: { key: 'GROQ_API_KEY', run: groq, files: false }, gemini: { key: 'GEMINI_API_KEY', run: gemini, files: true }, claude: { key: 'ANTHROPIC_API_KEY', run: claude, files: true } };
 const ORDER = ['groq', 'gemini', 'claude'];
 
-// ask each brain in turn; check() turns its JSON into clean data or says what to fix (one retry with the reason)
+// a provider whose account is out of credit or quota, or whose key is refused, rests for 10 minutes, so each
+// request does not wait for the same refusal again
+const resting = {};
+const RESTING = /credit balance|billing|quota|exceeded your|insufficient|invalid.{0,10}(api.)?key|unauthori[sz]ed|\b40[13]\b/i;
+
+// ask each brain in turn; check() turns its JSON into clean data or says what to fix (one retry with the reason).
+// opts.end: the time (ms) the answer must be back by (the server stops at 120 seconds); each try gets the time
+// left, and none starts with less than 15 seconds to go
 async function ask(prompt, check, file, opts = {}) {
   const tried = [];
+  const left = () => (opts.end ? opts.end - Date.now() : 0);
+  const late = () => opts.end && left() < 15000;
   for (const name of opts.order || ORDER) {
     const p = PROVIDERS[name];
     if (!env(p.key) || (file && !p.files)) continue;
+    if (resting[name] > Date.now()) { tried.push(`${name}: resting`); continue; }
     let q = prompt + (opts.lang || '');
     for (let attempt = 0; attempt < 2; attempt++) {
+      if (late()) { tried.push(`${name}: out of time`); break; }
       try {
-        const out = check(await p.run(q, file, opts), attempt);
-        if (out && out.ok !== false) return { data: out.spec || out, by: name, skipped: tried };
+        const out = check(await p.run(q, file, { ...opts, ms: left() || undefined }), attempt);
+        if (out && out.ok !== false) return { data: plain(out.spec || out), by: name, skipped: tried };
         tried.push(`${name}: answer not usable${out && out.why ? ` (${out.why})` : ''}`);
         q = `${prompt}${opts.lang || ''}\n\nYour last answer could not be used${out && out.why ? `: ${out.why}` : ''}. Try again, following the shape exactly.`;
-      } catch (e) { tried.push(`${name}: ${e.message}`); break; }
+      } catch (e) {
+        if (RESTING.test(e.message)) resting[name] = Date.now() + 10 * 60000;
+        tried.push(`${name}: ${e.message}`); break;
+      }
     }
   }
   const err = new Error(tried.length ? 'All AI providers failed' : 'No AI key is set on the server');
   err.detail = tried; err.status = tried.length ? 502 : 503;
   throw err;
+}
+
+// ---- drawings kept on the server (in the same store as study rooms), for 180 days ----
+// the key is the question with the small words taken out, so "Draw the water cycle!" and "water cycle" match
+const FILLER = /\b(a|an|the|of|please|pls|draw|show|me|us|can|you|could|make|explain|picture|diagram|in\s*3d|3d|model)\b/g;
+export const drawKey = (question, mode, lang) => {
+  const words = String(question || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(FILLER, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+  return words ? `draw:v1:${mode}:${lang || 'en'}:${words}` : null;
+};
+const storeOn = () => kvMode() !== 'off';
+async function keptDrawing(key) {
+  if (!key || !storeOn()) return null;
+  try { const v = await kv('GET', key); return v ? JSON.parse(v) : null; } catch (e) { return null; }
+}
+async function keepDrawing(key, data) {
+  if (!key || !storeOn() || !data) return;
+  try { await kv('SET', key, JSON.stringify(data), 'EX', 180 * 24 * 3600); } catch (e) { /* (a drawing that is not kept is only slower next time) */ }
 }
 
 export default async function handler(req, res) {
@@ -153,9 +185,21 @@ export default async function handler(req, res) {
       if (!String(body.question || '').trim()) return res.status(400).json({ ok: false, error: 'Ask Cody what to draw.' });
       // a realistic drawing is many careful curves: Claude draws best, then Gemini; Groq thinks harder if it gets there
       // 2d: a flat drawing; 3d (asked for, and a real object): a model the student can turn, open and pull apart
+      // the server stops at 120 seconds, so every try ends by 110; a 3D model gets the first 75, and if no AI could
+      // build one, it is drawn flat instead (an easier job) in the time left
       const mode = drawMode(body.question, body.mode);
-      out = await ask(drawPrompt({ question: body.question, context: body.context, mode }), (j, attempt) => checkDrawing(j, attempt, body.question), null, { lang, order: ['claude', 'gemini', 'groq'], effort: 'medium' });
-      if (body.mode === '3d' && mode === '2d') out.flat = true; // (3D was asked for something soft or living: drawn flat, and the app says why)
+      // a drawing someone already got for the same question comes back at once, the same every time
+      // (fresh: the student asked for a new one, which then replaces it)
+      const key = drawKey(body.question, mode, body.lang);
+      if (!body.fresh) { const kept = await keptDrawing(key); if (kept) return res.status(200).json({ ok: true, data: kept, by: 'saved', ...(body.mode === '3d' && mode === '2d' ? { flat: 'soft' } : {}) }); }
+      const t0 = Date.now();
+      const draw = (m, end) => ask(drawPrompt({ question: body.question, context: body.context, mode: m }), (j, attempt) => checkDrawing(j, attempt, body.question), null, { lang, order: ['claude', 'gemini', 'groq'], effort: 'medium', end });
+      if (mode === '3d') {
+        try { out = await draw('3d', t0 + 75000); }
+        catch (e) { if (e.status === 503) throw e; out = await draw('2d', t0 + 110000); out.flat = 'failed'; }
+      } else out = await draw('2d', t0 + 110000);
+      if (body.mode === '3d' && mode === '2d') out.flat = 'soft'; // (3D was asked for something soft or living: drawn flat, and the app says why)
+      if (out.flat !== 'failed') await keepDrawing(key, out.data);
     } else if (body.task === 'chat') {
       const msgs = Array.isArray(body.messages) ? body.messages : [];
       if (!msgs.length || !String((msgs[msgs.length - 1] || {}).text || '').trim()) return res.status(400).json({ ok: false, error: 'Say something to Cody first.' });

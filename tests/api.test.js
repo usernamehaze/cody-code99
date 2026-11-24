@@ -1,7 +1,7 @@
 // node --test: the server's checks and its provider order, with a fake AI (no real keys needed)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkReviewer, checkDrawing } from '../lib/tasks.js';
+import { checkReviewer, checkDrawing, plain } from '../lib/tasks.js';
 
 const call = async (handler, body, method = 'POST') => {
   const res = { code: 0, body: null, status(c) { this.code = c; return this; }, json(o) { this.body = o; return this; } };
@@ -187,4 +187,51 @@ test('3D is used only when asked and only for real objects; a heart in 3D is dra
   assert.equal(drawMode('the human heart', '3d'), '2d');
   assert.match(drawPrompt({ question: 'a bicycle', mode: '3d' }), /"mode":"3d"/);
   assert.match(drawPrompt({ question: 'a bicycle' }), /realistic 2D illustration/);
+});
+
+test('answers come back without emojis or en and em dashes', () => {
+  const out = plain({ reply: 'The heart — a pump \u{1F9E1}! Years 1990–1995. Done ✅.\n\u{1F525} Hot\n  - nested', drawing: { d: 'M 1 -2 L 3 4' } });
+  assert.equal(out.reply, 'The heart, a pump! Years 1990-1995. Done.\nHot\n  - nested');
+  assert.equal(out.drawing.d, 'M 1 -2 L 3 4');
+});
+
+test('when no AI can build a 3D model, it is drawn flat instead and the app is told why', async () => {
+  process.env.GROQ_API_KEY = 'test-groq'; delete process.env.GEMINI_API_KEY; delete process.env.ANTHROPIC_API_KEY;
+  const realFetch = globalThis.fetch; const kinds = [];
+  globalThis.fetch = async (url, init) => {
+    const flat = /realistic 2D illustration/.test(JSON.parse(init.body).messages[1].content); kinds.push(flat ? '2d' : '3d');
+    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(flat ? drawing : { parts: [] }) } }] }), { status: 200 });
+  };
+  try {
+    const { default: handler } = await import('../api/ai.js');
+    const r = await call(handler, { task: 'draw', question: 'an electric fan', mode: '3d' });
+    assert.equal(r.code, 200); assert.equal(r.body.flat, 'failed');
+    assert.deepEqual(kinds, ['3d', '3d', '2d']);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('a good drawing is kept: the same question comes back without asking the AI, and "fresh" asks again', async () => {
+  process.env.GROQ_API_KEY = 'test-groq'; delete process.env.GEMINI_API_KEY; delete process.env.ANTHROPIC_API_KEY;
+  const realFetch = globalThis.fetch; let calls = 0;
+  globalThis.fetch = async () => { calls++; return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(drawing) } }] }), { status: 200 }); };
+  try {
+    const { default: handler } = await import('../api/ai.js');
+    const a = await call(handler, { task: 'draw', question: 'How does a rainbow form?' });
+    const b = await call(handler, { task: 'draw', question: 'Draw how does a rainbow form!' });
+    assert.equal(calls, 1); assert.equal(b.body.by, 'saved'); assert.deepEqual(b.body.data, a.body.data);
+    const c = await call(handler, { task: 'draw', question: 'How does a rainbow form?', fresh: true });
+    assert.equal(calls, 2); assert.notEqual(c.body.by, 'saved');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('the 3D examples are built into the app and pass the same checks as an AI model', async () => {
+  const { figureFor } = await import('../js/drawings.js');
+  const { problems3d, tidy3d } = await import('../lib/model3d.js');
+  for (const q of ['A bicycle in 3D', 'A jet engine in 3D']) {
+    const m = figureFor(q, '3d');
+    assert.ok(m && m.mode === '3d', q);
+    assert.deepEqual(problems3d(tidy3d(m)), { hard: [], soft: [] }, q);
+    assert.notEqual(checkDrawing(m, 0, q).ok, false, q);
+  }
+  assert.equal(figureFor('A bicycle'), null, 'a flat bicycle is still drawn by the AI');
 });

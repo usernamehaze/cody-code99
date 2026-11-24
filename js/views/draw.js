@@ -36,7 +36,9 @@ export function render(root, id, params) {
   let asked = rev ? `Explain ${rev.title.toLowerCase()}` : q;
   // flat (2D) or a 3D model the student can turn, open and pull apart (from Cassie): the switch, or "in 3D" in the question
   const mode = params.get('m') === '3d' || WANTS_3D.test(q) ? '3d' : '2d';
+  // the examples and a few favourites are built into the app, so they always work (no internet or AI needed)
   if (!spec && q && mode === '2d') { const sm = sampleFor(q); spec = sm ? sm.drawing : figureFor(q); }
+  if (!spec && q && mode === '3d') spec = figureFor(q, '3d');
   if (!spec && !q && last) { spec = last.spec; asked = last.question; }
 
   root.innerHTML = `
@@ -51,7 +53,7 @@ export function render(root, id, params) {
     </form>
     <div class="chips">${['How does the water cycle work?', 'Parts of the human heart', 'How photosynthesis works', 'The plant cell', 'A bicycle in 3D', 'A jet engine in 3D'].map((c) => `<button class="chip" type="button">${c}</button>`).join('')}</div>
     <section class="split grow">
-      <div class="card"><h2 class="board-title">${esc(spec ? spec.title : 'Your drawing')}</h2><div class="board" id="board">${spec ? '' : '<p class="muted center">Ask a question above, or pick one of the examples.</p>'}</div></div>
+      <div class="card"><h2 class="board-title">${esc(spec ? spec.title : 'Your drawing')}</h2><div class="board" id="board">${spec ? '' : '<p class="muted center">Ask a question above, or pick one of the examples.</p>'}</div><button class="btn small outline redo" type="button" hidden>Draw it again</button></div>
       <div class="card explain">
         <h2 class="eyebrow">Cody explains</h2>
         <ol class="steps"></ol>
@@ -136,18 +138,27 @@ export function render(root, id, params) {
   root.querySelector('.save').addEventListener('click', () => { if (!ctl) return; const r = saved(); toast(`Saved to "${r.title}"`); location.hash = '#/reviewer/' + r.id; });
   root.querySelector('.to-game').addEventListener('click', () => { if (!ctl) return; const r = saved(); location.hash = '#/label/' + r.id; });
 
-  if (spec) show(spec, asked);
-  else if (q) {
+  // ask the AI. The server keeps every good drawing and gives it back the next time anyone asks the same thing
+  // (fast, and the same picture every time); "Draw it again" asks for a new one, which replaces the kept one
+  function fetchDrawing(fresh) {
+    gen++; hush(); if (ctl) { ctl.stop(); ctl = null; }
+    redo.hidden = true; stepsEl.innerHTML = '';
     status(mode === '3d' ? 'Cody is planning the 3D model…' : 'Cody is thinking about how to draw it…');
     root.querySelector('#board').innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
     const my = gen;
-    ask('draw', { question: q.replace(/\s+in 3d$/i, ''), mode }).then(({ data, flat }) => {
+    ask('draw', { question: q.replace(/\s+in 3d$/i, ''), mode, fresh: !!fresh }).then(({ data, flat }) => {
       if (my !== gen || !root.isConnected) return;
       const sp = clean(data); if (!sp) throw new Error('Cody could not draw that one. Try asking another way.');
-      show(sp, q);
-      if (flat) toast('3D is for machines and objects. Living things and processes are clearer as a flat drawing, so Cody drew it flat.');
+      show(sp, q); redo.hidden = false;
+      if (flat === 'failed') toast('Cody could not build that one in 3D this time, so here it is as a flat drawing. Try 3D again in a bit.');
+      else if (flat) toast('3D is for machines and objects. Living things and processes are clearer as a flat drawing, so Cody drew it flat.');
     })
-      .catch((e) => { status(''); root.querySelector('#board').innerHTML = `<p class="muted center">${esc(e.message)}</p>`; });
+      .catch((e) => { if (my !== gen) return; status(''); redo.hidden = false; root.querySelector('#board').innerHTML = `<p class="muted center">${esc(e.message)}</p>`; });
   }
+  const redo = root.querySelector('.redo');
+  redo.addEventListener('click', () => fetchDrawing(true));
+
+  if (spec) { show(spec, asked); redo.hidden = !q; }
+  else if (q) fetchDrawing(false);
   return () => { gen++; hush(); if (ctl) ctl.stop(); };
 }
